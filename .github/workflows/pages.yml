@@ -1,0 +1,44 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: read the code, publish to Pages, nothing else.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Self-host MapLibre (exact pinned version; npm verifies the package checksum)
+      # so the live site runs no third-party scripts.
+      - name: Build site
+        run: |
+          mkdir -p _site/vendor
+          npm pack maplibre-gl@4.7.1 --silent
+          tar -xzf maplibre-gl-4.7.1.tgz
+          cp package/dist/maplibre-gl.js package/dist/maplibre-gl.css _site/vendor/
+          cp index.html app.js style.css sw.js manifest.webmanifest icon-*.png _site/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
