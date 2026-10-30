@@ -1,10 +1,10 @@
 /* Trip Planner service worker.
    App shell: offline, refreshed in the background. Map tiles: cache-first, capped.
    Weather/exchange rates: network-first with offline fallback. Place searches are never cached. */
-const SHELL='shell-v7',TILES='tiles-v1',DATA='data-v1',PHOTOS='photos-v1',TILE_CAP=8000,PHOTO_CAP=400;
+const SHELL='shell-v8',TILES='tiles-v1',DATA='data-v1',PHOTOS='photos-v1',TILE_CAP=8000,PHOTO_CAP=400;
 const SHELL_URLS=['./','./index.html','./app.js','./style.css','./fonts.css','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png','./vendor/maplibre-gl.js','./vendor/maplibre-gl.css',
  './vendor/fonts/inter-latin-400-normal.woff2','./vendor/fonts/inter-latin-500-normal.woff2','./vendor/fonts/inter-latin-600-normal.woff2','./vendor/fonts/fraunces-latin-600-normal.woff2'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>Promise.all(SHELL_URLS.map(u=>c.add(u).catch(()=>{})))).then(()=>self.skipWaiting()))});
+self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>Promise.all(SHELL_URLS.map(u=>c.add(new Request(u,{cache:'reload'})).catch(()=>{})))).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>![SHELL,TILES,DATA,PHOTOS].includes(k)).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 let trimming=false;
 function trimTiles(){if(trimming)return;trimming=true;caches.open(TILES).then(c=>c.keys().then(ks=>{const extra=ks.length-TILE_CAP;return extra>0?Promise.all(ks.slice(0,extra).map(k=>c.delete(k))):0})).finally(()=>{trimming=false})}

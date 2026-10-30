@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.10.29-tips';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -1164,7 +1164,7 @@ $('#bTrip').onclick=function(){
   '<div class="card"><div class="ct">On iPhone</div><div class="small">In Safari tap Share → <b>Add to Home Screen</b>. It opens full-screen like an app, can use your location, and keeps your data on the phone. Copy a backup now and then.</div></div>'+
   (total?'<p class="small">Booked costs so far: <b>'+money(total)+'</b></p>':'')+
   '<div class="f"><label>Backup — copy somewhere safe, or paste one in to restore (v1 backups work too)</label><textarea id="tJson" style="min-height:80px;font-size:11px;font-family:ui-monospace,monospace"></textarea></div><div class="small" id="tMsg" style="min-height:18px"></div>'+
-  '<div class="acts"><button class="btn" id="tCopy">Copy backup</button><button class="btn" id="tRestore">Restore pasted</button><button class="btn" id="tExp">Export for Google Maps</button><span class="grow"></span><button class="btn primary" id="tDone">Done</button></div>';
+  '<div class="small o" style="margin:-4px 0 8px">App version '+APP_VERSION+'</div><div class="acts"><button class="btn" id="tCopy">Copy backup</button><button class="btn" id="tRestore">Restore pasted</button><button class="btn" id="tExp">Export for Google Maps</button><span class="grow"></span><button class="btn primary" id="tDone">Done</button></div>';
   $('#tJson').value=JSON.stringify(state);$('#ov').classList.remove('hidden');
   $('#tStart').onchange=$('#tDays').onchange=function(){state.trip.start=$('#tStart').value;state.trip.days=Math.max(1,Math.min(30,+$('#tDays').value||7));state.pins.forEach(function(p){if(p.day>state.trip.days)p.day=0});if(ui.day>state.trip.days)ui.day=1;commit();render()};
   $('#tCopy').onclick=function(){var t=$('#tJson');try{navigator.clipboard.writeText(t.value).then(function(){$('#tMsg').textContent='Copied.'},function(){t.select();$('#tMsg').textContent='Selected — copy it manually.'})}catch(e){t.select();$('#tMsg').textContent='Selected — copy it manually.'}};
@@ -1216,5 +1216,10 @@ try{new ResizeObserver(function(){clearTimeout(rz);rz=setTimeout(resize,80)}).ob
 setSave(sync?'Syncing…':'Saved on this phone');
 if(sync){syncNow();setInterval(function(){if(sync&&document.visibilityState==='visible'&&!editing)syncNow()},45000)}
 maybeRefresh();
-if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});
+if('serviceWorker' in navigator&&location.protocol==='https:'){
+  var hadSW=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){try{reg.update()}catch(e){};document.addEventListener('visibilitychange',function(){if(!document.hidden)try{reg.update()}catch(e){}})}).catch(function(){});
+  /* a new version took over: reload once so it shows immediately (not while you're typing) */
+  navigator.serviceWorker.addEventListener('controllerchange',function(){if(!hadSW)return;var go=function(){if(editing||busyInput()){setTimeout(go,2000);return}try{if(sessionStorage.getItem('tpReloaded'))return;sessionStorage.setItem('tpReloaded','1')}catch(e){}location.reload()};go()});
+}
 })();
