@@ -1,5 +1,6 @@
 (function(){
 "use strict";var rz;
+if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
 var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
@@ -48,6 +49,8 @@ if(!state){try{state=migrate(JSON.parse(document.getElementById('seed').textCont
 if(!state)state=migrate({v:2,updated:0,trip:{start:'',days:7},pins:[]});
 var ui={tab:'queue',day:1,cat:'all',showLib:false,min:false,t:null,q:''};
 try{var u=JSON.parse(localStorage.getItem(LSUI));if(u)for(var k in u)ui[k]=u[k]}catch(e){}
+(function(){var T={queue:1,plan:1,pack:1,spend:1,library:1,done:1};if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;ui.showLib=!!ui.showLib;
+  var v=ui.view;if(!(v&&v.c&&isFinite(v.c[0])&&isFinite(v.c[1])&&Math.abs(v.c[0])<=180&&Math.abs(v.c[1])<=85&&isFinite(v.z)&&v.z>=0&&v.z<=20))ui.view=null;if(ui.spCat&&!/^\w+$/.test(ui.spCat))ui.spCat='food'})();
 if(ui.day>state.trip.days)ui.day=1;
 function saveUI(){try{localStorage.setItem(LSUI,JSON.stringify(ui))}catch(e){}}
 
@@ -233,9 +236,11 @@ $('#app').innerHTML=
 '<div id="mapwrap"><div id="map"></div><div id="hint"></div>'+
 '<div class="fabs"><button class="btn primary" id="bAdd">+ Pin</button><button class="btn" id="bFit" title="Reset view">⤢</button></div><div id="legend"></div></div>'+
 '<section id="panel"><div class="tabs" id="tabs"></div><div id="pbody"></div></section>'+
-'<div id="toast"></div><div class="ov hidden" id="ov"><div class="sheet" id="sheet"></div></div>';
+'<div id="toast"></div><div class="ov hidden" id="ov"><div class="sheet" id="sheet"></div></div><div class="lb hidden" id="lb"></div>';
 $('#legend').innerHTML=Object.keys(CATS).map(function(k){return '<span><i class="sw" style="background:'+CATS[k][1]+'"></i>'+CATS[k][0]+'</span>'}).join('')+'<span><i class="sw base"></i>Base</span>';
 
+$('#lb').onclick=function(e){var n=e.target.closest('.lbn');if(n){e.stopPropagation();lbI=(lbI+(+n.getAttribute('data-d'))+lbList.length)%lbList.length;drawLb();return}if(e.target.closest('a'))return;$('#lb').classList.add('hidden')};
+document.addEventListener('keydown',function(e){if($('#lb').classList.contains('hidden'))return;if(e.key==='Escape')$('#lb').classList.add('hidden');if(e.key==='ArrowRight'||e.key==='ArrowLeft'){lbI=(lbI+(e.key==='ArrowRight'?1:-1)+lbList.length)%lbList.length;drawLb()}});
 /* ---------- map (MapLibre + OpenFreeMap) ---------- */
 var STYLE='https://tiles.openfreemap.org/styles/liberty';
 var map=null,mapReady=false,addMode=null,selId=null,HOME={c:[-4.6,57.0],z:5.3};
@@ -262,7 +267,7 @@ function initMap(){
   map.on('mouseenter','pins',function(){map.getCanvas().style.cursor='pointer'});
   map.on('mouseleave','pins',function(){map.getCanvas().style.cursor=''});
   map.on('click',function(e){
-    if(!addMode)return;var ll=e.lngLat,m=addMode;setAdd(null);
+    if(!addMode){if(map.queryRenderedFeatures(e.point,{layers:['pins']}).length)return;var l=landmarkAt(e.point);if(l)openLandmark(l,e.lngLat);return}var ll=e.lngLat,m=addMode;setAdd(null);
     if(m.move){var p=byId(m.move);p.lat=+ll.lat.toFixed(5);p.lng=+ll.lng.toFixed(5);commit();render();openEditor(p.id);return}
     var p={id:uid(),name:'New pin',lat:+ll.lat.toFixed(5),lng:+ll.lng.toFixed(5),cat:'scenic',stage:'queue',booked:false,day:ui.tab==='plan'?ui.day:0,order:nextOrder(),notes:''};
     state.pins.push(p);commit();render();openEditor(p.id,true);
@@ -311,6 +316,66 @@ function fitDay(n){var l=dayPins(n).slice(),sb=startBase(n),eb=endBase(n);if(sb)
 function setAdd(m){addMode=m;$('#mapwrap').classList.toggle('adding',!!m);var h=$('#hint');h.style.display=m?'block':'none';h.textContent=m&&m.move?'Tap the spot for “'+(byId(m.move)||{}).name+'”':'Tap the map to drop a pin';$('#bAdd').textContent=m?'Cancel':'+ Pin';$('#bAdd').classList.toggle('primary',!m)}
 $('#bAdd').onclick=function(){setAdd(addMode?null:{})};
 $('#bFit').onclick=function(){fit()};
+
+
+/* ---------- photos & info (Wikipedia + Wikimedia Commons, free & keyless) ---------- */
+var infoCache={};
+function stripTags(s){var d=document.createElement('div');d.innerHTML=String(s||'').replace(/<(script|style)[\s\S]*?<\/\1>/gi,'');return (d.textContent||'').replace(/\s+/g,' ').trim()}
+function jget(u){return fetch(u).then(function(r){if(!r.ok)throw 0;return r.json()})}
+var WP='https://en.wikipedia.org/w/api.php?format=json&origin=*&action=query';
+var WC='https://commons.wikimedia.org/w/api.php?format=json&origin=*&action=query';
+function norm(s){return String(s||'').toLowerCase().replace(/\(.*?\)/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\b(the|of|and|a)\b/g,' ').replace(/\s+/g,' ').trim()}
+function similar(a,b){a=norm(a);b=norm(b);if(!a||!b)return false;if(a===b||a.indexOf(b)>=0||b.indexOf(a)>=0)return true;var A=a.split(' '),B=b.split(' '),hit=A.filter(function(w){return w.length>2&&B.indexOf(w)>=0}).length;return hit>=Math.min(2,Math.max(1,Math.min(A.length,B.length)-0))}
+function wikiArticle(name,lat,lng){
+  var near=lat!=null?jget(WP+'&list=geosearch&gscoord='+lat.toFixed(5)+'|'+lng.toFixed(5)+'&gsradius=3000&gslimit=12').then(function(j){var g=(j.query&&j.query.geosearch)||[];var m=g.filter(function(x){return similar(x.title,name)})[0];return m?m.title:null}).catch(function(){return null}):Promise.resolve(null);
+  return near.then(function(t){if(t)return t;return jget(WP+'&list=search&srlimit=3&srsearch='+encodeURIComponent(name+' Scotland')).then(function(j){var s=(j.query&&j.query.search)||[];var m=s.filter(function(x){return similar(x.title,name)})[0];return m?m.title:null}).catch(function(){return null})})
+  .then(function(t){if(!t)return null;return jget(WP+'&prop=extracts|pageimages|info&inprop=url&exintro=1&explaintext=1&exsentences=3&piprop=thumbnail&pithumbsize=900&titles='+encodeURIComponent(t)).then(function(j){var ps=j.query&&j.query.pages;if(!ps)return null;var p=ps[Object.keys(ps)[0]];if(!p||p.missing!=null)return null;return {title:p.title,extract:p.extract||'',url:p.fullurl||('https://en.wikipedia.org/wiki/'+encodeURIComponent(p.title)),thumb:p.thumbnail&&p.thumbnail.source}})}).catch(function(){return null});
+}
+function commonsPhotos(lat,lng,radius){
+  if(lat==null)return Promise.resolve([]);
+  return jget(WC+'&generator=geosearch&ggsnamespace=6&ggscoord='+lat.toFixed(5)+'|'+lng.toFixed(5)+'&ggsradius='+(radius||800)+'&ggslimit=24&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=640&iiextmetadatafilter=Artist|LicenseShortName|ObjectName|ImageDescription')
+  .then(function(j){var ps=(j.query&&j.query.pages)||{};return Object.keys(ps).map(function(k){var p=ps[k],ii=p.imageinfo&&p.imageinfo[0];if(!ii||!/jpe?g|png|webp/.test(ii.mime||''))return null;var md=ii.extmetadata||{};
+    return {thumb:ii.thumburl,full:ii.thumburl&&ii.thumburl.replace(/\/\d+px-/,'/1280px-'),page:ii.descriptionurl,credit:stripTags(md.Artist&&md.Artist.value).slice(0,80),lic:stripTags(md.LicenseShortName&&md.LicenseShortName.value),cap:stripTags((md.ImageDescription&&md.ImageDescription.value)||(md.ObjectName&&md.ObjectName.value)||p.title.replace(/^File:|\.\w+$/g,'')).slice(0,140)}}).filter(function(x){return x&&x.thumb&&/^https:\/\/upload\.wikimedia\.org\//.test(x.thumb)}).slice(0,14)}).catch(function(){return []});
+}
+function placeInfo(name,lat,lng,radius){
+  var key=name+'|'+(lat!=null?lat.toFixed(3)+','+lng.toFixed(3):'');if(infoCache[key])return infoCache[key];
+  var pr=Promise.all([wikiArticle(name,lat,lng),commonsPhotos(lat,lng,radius)]).then(function(r){var art=r[0],ph=r[1];if(art&&art.thumb&&/^https:\/\/upload\.wikimedia\.org\//.test(art.thumb)&&!ph.some(function(x){return x.thumb===art.thumb}))ph.unshift({thumb:art.thumb,full:art.thumb,page:art.url,credit:'Wikipedia',lic:'',cap:art.title});return {art:art,photos:ph}});
+  infoCache[key]=pr;return pr;
+}
+var lbList=[],lbI=0;
+function showLightbox(list,i){lbList=list;lbI=i;var el=$('#lb');el.classList.remove('hidden');drawLb()}
+function drawLb(){var x=lbList[lbI];if(!x)return;$('#lb').innerHTML='<img src="'+esc(x.full||x.thumb)+'" alt="">'+
+  '<div class="lbcap">'+esc(x.cap||'')+'<br><span class="o">'+esc([x.credit,x.lic].filter(Boolean).join(' · '))+' · <a href="'+esc(x.page)+'" target="_blank" rel="noopener">source</a></span></div>'+
+  (lbList.length>1?'<button class="lbn l" data-d="-1">‹</button><button class="lbn r" data-d="1">›</button>':'')+'<button class="lbx">✕</button><div class="lbi">'+(lbI+1)+' / '+lbList.length+'</div>'}
+function fillPhotos(el,name,lat,lng,radius){
+  if(!el)return;el.innerHTML='<div class="small o">Loading photos…</div>';
+  placeInfo(name,lat,lng,radius).then(function(r){if(!el.isConnected)return;var h='';
+    if(r.photos.length){h+='<div class="strip">'+r.photos.map(function(x,i){return '<img loading="lazy" src="'+esc(x.thumb)+'" alt="'+esc(x.cap)+'" data-i="'+i+'">'}).join('')+'</div><div class="small o" style="margin-top:3px">Photos from Wikimedia Commons, taken near this spot. Tap to enlarge and see credits.</div>'}
+    else h+='<div class="small o">No photos found nearby.</div>';
+    if(r.art&&r.art.extract)h+='<p class="blurb">'+esc(r.art.extract)+' <a href="'+esc(r.art.url)+'" target="_blank" rel="noopener">Wikipedia ↗</a></p>';
+    el.innerHTML=h;$$('img[data-i]',el).forEach(function(im){im.onclick=function(){showLightbox(r.photos,+im.getAttribute('data-i'))};im.onerror=function(){im.remove()}});
+  });
+}
+/* tapping a landmark, peak or town on the base map */
+var LM_LAYERS=['poi','mountain_peak','place','water_name','aerodrome_label','park'];
+function landmarkAt(point){
+  if(!map)return null;var fs=map.queryRenderedFeatures([[point.x-8,point.y-8],[point.x+8,point.y+8]]).filter(function(f){var sl=f.sourceLayer||'';var p=f.properties||{};return LM_LAYERS.indexOf(sl)>=0&&(p['name:en']||p.name_en||p.name)&&f.layer&&f.layer.type==='symbol'});
+  if(!fs.length)return null;var f=fs[0],p=f.properties,g=f.geometry,c=g&&g.type==='Point'?g.coordinates:null;
+  return {name:String(p['name:en']||p.name_en||p.name).slice(0,100),kind:String(p.subclass||p.class||f.sourceLayer||'').replace(/_/g,' '),ele:p.ele,lng:c?c[0]:null,lat:c?c[1]:null,layer:f.sourceLayer};
+}
+function guessCatLM(l){var k=(l.kind||'')+' '+l.layer;if(/peak|mountain|volcano|saddle/.test(k))return 'hike';if(/castle|ruins|monument|memorial|museum|attraction|historic|place_of_worship|church/.test(k))return 'castle';if(/restaurant|pub|cafe|bar|fast food|brewery|food/.test(k))return 'food';if(/hotel|hostel|guest|lodging|camp/.test(k))return 'stay';if(/place|city|town|village|hamlet/.test(k))return 'city';return 'scenic'}
+function openLandmark(l,ll){
+  if(l.lat==null){l.lat=ll.lat;l.lng=ll.lng}
+  editing=true;var ex=state.pins.filter(function(p){return hasLoc(p)&&p.name.toLowerCase()===l.name.toLowerCase()&&km(p,l)<3})[0];
+  $('#sheet').innerHTML='<h2>'+esc(l.name)+'</h2><div class="small o" style="margin:-6px 0 10px">'+esc(l.kind)+(l.ele?' · '+esc(l.ele)+' m ('+Math.round(+l.ele*3.281)+' ft)':'')+'</div>'+
+    '<div id="lmPhotos" class="photos"></div>'+
+    '<div class="acts" style="margin-top:12px">'+(ex?'<button class="btn" id="lmOpen">Open your pin</button>':'<button class="btn primary" id="lmAdd">+ Add to queue</button>')+'<a class="btn" href="'+gmaps(l)+'" target="_blank" rel="noopener" style="text-decoration:none">Google Maps ↗</a><span class="grow"></span><button class="btn" id="lmDone">Close</button></div>';
+  $('#ov').classList.remove('hidden');
+  fillPhotos($('#lmPhotos'),l.name,l.lat,l.lng,l.layer==='place'?2500:l.layer==='mountain_peak'?1500:600);
+  $('#lmDone').onclick=closeSheet;
+  if(ex)$('#lmOpen').onclick=function(){openEditor(ex.id)};
+  else $('#lmAdd').onclick=function(){var before=snap();var p={id:uid(),name:l.name,lat:+l.lat.toFixed(5),lng:+l.lng.toFixed(5),cat:guessCatLM(l),stage:'queue',booked:false,day:0,order:nextOrder(),notes:l.ele?l.ele+' m':''};state.pins.push(p);commit();closeSheet();toast(p.name+' added to queue',before)};
+}
 
 /* ---------- place search (Photon / OpenStreetMap) ---------- */
 var sTimer=null,sSeq=0,sResults=[];
@@ -564,12 +629,14 @@ function openEditor(id,isNew){
   '<div class="f"><label>Bad-weather swap</label><select id="eSwap">'+swaps+'</select></div>'+
   '<details class="bkbox"'+(p.booked||p.conf||p.cost||p.slot?' open':'')+'><summary>Booking &amp; cost</summary><label class="chk" style="margin:8px 0;display:flex"><input type="checkbox" id="eBk"'+(p.booked?' checked':'')+'> Booked / tickets sorted</label>'+
   '<div class="three"><div class="f"><label>Time slot</label><input id="eSlot" placeholder="10:30" value="'+esc(p.slot||'')+'"></div><div class="f"><label>Booking ref</label><input id="eConf" value="'+esc(p.conf||'')+'"></div><div class="f"><label>Cost (£)</label><input id="eCost" type="number" min="0" step="0.5" value="'+(p.cost!=null?esc(p.cost):'')+'"></div></div></details>'+
+  (hasLoc(p)?'<div class="f"><label>Photos &amp; info</label><div id="ePhotos" class="photos"></div></div>':'')+
   '<div class="f"><label>Notes</label><textarea id="eNotes" placeholder="Parking, tickets, weather backup…">'+esc(p.notes)+'</textarea></div>'+
   (hasLoc(p)?'<div class="small" style="margin-bottom:8px">'+p.lat.toFixed(4)+', '+p.lng.toFixed(4)+' · <a href="'+gmaps(p)+'" target="_blank" rel="noopener">Open in Google Maps</a></div>':
    '<div class="f"><label>No location yet — paste a Google Maps link or coordinates</label><input id="eLoc" placeholder="https://www.google.com/maps/place/…/@57.29,-6.17…"><div class="small"><a href="'+gmaps(p)+'" target="_blank" rel="noopener">Look it up in Google Maps</a>, then copy the long link from the address bar.</div></div>')+
   '<div class="acts"><button class="btn" id="eMove">'+(hasLoc(p)?'Move pin':'Place on map')+'</button><button class="btn danger" id="eDel">Delete</button><span class="grow"></span><button class="btn primary" id="eDone">Done</button></div>';
   $('#ov').classList.remove('hidden');
   if(isNew)setTimeout(function(){var n=$('#eName');n.focus();n.select()},50);
+  if(hasLoc(p)&&!isNew)fillPhotos($('#ePhotos'),p.name,p.lat,p.lng,p.cat==='city'?2500:p.cat==='hike'?1500:600);else if($('#ePhotos'))$('#ePhotos').innerHTML='<div class="small o">Name it and reopen to see photos.</div>';
   function upd(){p.name=$('#eName').value.trim()||'Untitled';p.cat=$('#eCat').value;p.booked=$('#eBk').checked;p.notes=$('#eNotes').value;
     var mv=$('#eMins').value;p.mins=mv===''?null:Math.max(0,+mv);p.high=$('#eHigh').checked;p.swapId=$('#eSwap').value||'';
     p.slot=$('#eSlot').value.trim();p.conf=$('#eConf').value.trim();var cv=$('#eCost').value;p.cost=cv===''?null:Math.max(0,+cv);

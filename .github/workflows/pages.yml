@@ -18,27 +18,42 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      # Actions are pinned to exact commits (tag in the comment) so a retagged or
+      # compromised release can't change what runs here. Dependabot proposes updates.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
-      # Self-host MapLibre (exact pinned version; npm verifies the package checksum)
-      # so the live site runs no third-party scripts.
+      # Self-host MapLibre and the fonts at exact versions so the live site loads no
+      # third-party code or fonts. The build stops if MapLibre's checksum doesn't
+      # match what the npm registry published for that version.
       - name: Build site
+        env:
+          MAPLIBRE: maplibre-gl@4.7.1
         run: |
-          mkdir -p _site/vendor
-          npm pack maplibre-gl@4.7.1 --silent
-          tar -xzf maplibre-gl-4.7.1.tgz
-          cp package/dist/maplibre-gl.js package/dist/maplibre-gl.css _site/vendor/
-          cp index.html app.js style.css sw.js manifest.webmanifest icon-*.png _site/
+          set -euo pipefail
+          mkdir -p _site/vendor/fonts work
+          cd work
+          npm pack "$MAPLIBRE" @fontsource/inter@5 @fontsource/fraunces@5 --silent --ignore-scripts
+          expected=$(npm view "$MAPLIBRE" dist.integrity)
+          actual="sha512-$(openssl dgst -sha512 -binary maplibre-gl-4.7.1.tgz | openssl base64 -A)"
+          [ "$expected" = "$actual" ] || { echo "MapLibre checksum mismatch"; exit 1; }
+          for t in *.tgz; do mkdir -p "x-${t%.tgz}" && tar -xzf "$t" -C "x-${t%.tgz}"; done
+          cp x-maplibre-gl-*/package/dist/maplibre-gl.js x-maplibre-gl-*/package/dist/maplibre-gl.css ../_site/vendor/
+          for w in 400 500 600; do cp x-fontsource-inter-*/package/files/inter-latin-$w-normal.woff2 ../_site/vendor/fonts/; done
+          cp x-fontsource-fraunces-*/package/files/fraunces-latin-600-normal.woff2 ../_site/vendor/fonts/
+          cd ..
+          cp index.html app.js style.css fonts.css sw.js manifest.webmanifest icon-*.png _site/
+          ls -R _site
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: _site
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
