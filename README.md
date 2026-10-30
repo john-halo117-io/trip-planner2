@@ -5,6 +5,7 @@ A phone-first trip planning web app: pin map with real street-level maps, queue 
 - Maps: MapLibre GL + OpenFreeMap (OpenStreetMap data)
 - Place search: Photon (komoot, OpenStreetMap)
 - Photos & info: Wikimedia Commons + Wikipedia (credits shown on each photo)
+- Opening hours: OpenStreetMap via Overpass (only when you tap “Look up”)
 - Weather: Open-Meteo · Exchange rates: Frankfurter (ECB)
 - Data lives on the device (localStorage). Use Trip → Copy backup to move or save it.
 
@@ -18,4 +19,4 @@ No build step: plain HTML/CSS/JS. Host as static files (GitHub Pages).
 - GitHub Actions are pinned to exact commits; Dependabot watches them for updates.
 - The app refuses to run inside another site's frame, and place searches are never cached on the device.
 - Deploys run through GitHub Actions with least-privilege permissions; GitHub Pages serves it over HTTPS only.
-- What third parties see: the map server sees which map areas you view; Open-Meteo sees the coordinates of your day bases; Photon sees what you search for; Wikipedia/Commons see which places you open photos for. None of them get your name or your account.
+- What third parties see: the map server sees which map areas you view; Open-Meteo sees the coordinates of your day bases; Photon sees what you search for; Wikipedia/Commons see which places you open photos for; Overpass sees a pin's location when you look up its hours. The Safety card's GPS location and the Calendar file are made on the phone and never sent anywhere. None of them get your name or your account.

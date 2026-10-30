@@ -35,7 +35,7 @@ function migrate(s){
     if(!CATS[p.cat])p.cat='scenic';if(!STAGES[p.stage])p.stage='library';p.day=Math.max(0,Math.min(60,parseInt(p.day,10)||0));p.order=num(p.order)||0;
     p.lat=num(p.lat);p.lng=num(p.lng);if(p.lat!=null&&(Math.abs(p.lat)>90))p.lat=null;if(p.lng!=null&&Math.abs(p.lng)>180)p.lng=null;
     p.cost=p.cost==null||p.cost===''?null:num(p.cost);p.mins=p.mins==null||p.mins===''?null:num(p.mins);
-    ['slot','conf','swapId'].forEach(function(k){if(p[k]!=null)p[k]=String(p[k]).slice(0,80)})});
+    ['slot','conf','swapId','hoursSrc'].forEach(function(k){if(p[k]!=null)p[k]=String(p[k]).slice(0,80)});if(p.hours!=null)p.hours=String(p.hours).slice(0,200);p.hoursChecked=num(p.hoursChecked)});
   s.trip.days=Math.max(1,Math.min(30,parseInt(s.trip.days,10)||7));s.trip.start=/^\d{4}-\d{2}-\d{2}$/.test(s.trip.start||'')?s.trip.start:'';
   Object.keys(s.trip.dayCfg).forEach(function(k){var c=s.trip.dayCfg[k]||{};if(c.leave&&!/^\d{1,2}:\d{2}$/.test(c.leave))c.leave='08:30';['start','end'].forEach(function(x){if(c[x])c[x]=String(c[x]).replace(/[^\w-]/g,'')})});
   if(s.spend&&s.spend.items)s.spend.items=s.spend.items.filter(function(e){return e&&typeof e==='object'}).map(function(e){return {id:String(e.id||uid()).replace(/[^\w-]/g,''),amt:num(e.amt)||0,cur:e.cur==='USD'?'USD':'GBP',cat:String(e.cat||'other').replace(/[^\w]/g,''),day:Math.max(0,parseInt(e.day,10)||0),note:String(e.note||'').slice(0,120),ts:num(e.ts)||0,src:e.src?String(e.src).replace(/[^\w-]/g,''):undefined}});
@@ -49,7 +49,7 @@ if(!state){try{state=migrate(JSON.parse(document.getElementById('seed').textCont
 if(!state)state=migrate({v:2,updated:0,trip:{start:'',days:7},pins:[]});
 var ui={tab:'queue',day:1,cat:'all',showLib:false,min:false,t:null,q:''};
 try{var u=JSON.parse(localStorage.getItem(LSUI));if(u)for(var k in u)ui[k]=u[k]}catch(e){}
-(function(){var T={queue:1,plan:1,pack:1,spend:1,library:1,done:1};if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;ui.showLib=!!ui.showLib;
+(function(){var T={today:1,queue:1,plan:1,pack:1,spend:1,library:1,done:1};if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;ui.showLib=!!ui.showLib;
   var v=ui.view;if(!(v&&v.c&&isFinite(v.c[0])&&isFinite(v.c[1])&&Math.abs(v.c[0])<=180&&Math.abs(v.c[1])<=85&&isFinite(v.z)&&v.z>=0&&v.z<=20))ui.view=null;if(ui.spCat&&!/^\w+$/.test(ui.spCat))ui.spCat='food'})();
 if(ui.day>state.trip.days)ui.day=1;
 function saveUI(){try{localStorage.setItem(LSUI,JSON.stringify(ui))}catch(e){}}
@@ -277,12 +277,13 @@ function initMap(){
 }
 function mapPins(){
   var out=[],qn=inStage('queue').length,bases={};
-  if(ui.tab==='plan'||ui.tab==='pack'){var sb=startBase(ui.day),eb=endBase(ui.day);if(hasLoc(sb))bases[sb.id]=1;if(hasLoc(eb))bases[eb.id]=1}
+  if(ui.tab==='today')ui.day=tripStatus().day;
+  if(ui.tab==='plan'||ui.tab==='pack'||ui.tab==='today'){var sb=startBase(ui.day),eb=endBase(ui.day);if(hasLoc(sb))bases[sb.id]=1;if(hasLoc(eb))bases[eb.id]=1}
   state.pins.forEach(function(p){
     if(!hasLoc(p))return;var role=null;
     if(bases[p.id])role='base';
     else if(!catOk(p))return;
-    else if(ui.tab==='plan'||ui.tab==='pack'){if(p.stage==='queue')role=p.day===ui.day?'planned':(!p.day&&ui.tab==='plan'?'cand':null)}
+    else if(ui.tab==='plan'||ui.tab==='pack'||ui.tab==='today'){if(p.stage==='queue')role=p.day===ui.day?'planned':(!p.day&&ui.tab==='plan'?'cand':null)}
     else if(ui.tab==='library'){if(p.stage==='library')role='lib'}
     else if(ui.tab==='done'){if(p.stage==='done')role='donep'}
     else{if(p.stage==='queue')role='q';else if((ui.showLib||!qn)&&p.stage==='library')role='lib'}
@@ -292,7 +293,7 @@ function mapPins(){
 }
 function drawPins(){
   if(!mapReady)return;var idx={};
-  if(ui.tab==='plan'||ui.tab==='pack')dayPins(ui.day).forEach(function(p,i){idx[p.id]=i+1});
+  if(ui.tab==='plan'||ui.tab==='pack'||ui.tab==='today')dayPins(ui.day).forEach(function(p,i){idx[p.id]=i+1});
   var feats=mapPins().map(function(d){var p=d.p,r=d.role,c=(CATS[p.cat]||CATS.scenic)[1],sel=p.id===selId;
     return {type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{id:p.id,name:p.name,role:r,
       color:r==='base'?'#ffffff':r==='donep'?'#8a9497':c,r:r==='planned'||r==='base'?10:r==='lib'||r==='cand'?6:8,op:r==='lib'?.55:r==='cand'?.6:1,
@@ -302,7 +303,7 @@ function drawPins(){
 }
 function drawRoute(){
   if(!mapReady)return;var seq=[];
-  if(ui.tab==='plan'||ui.tab==='pack'){var sb=startBase(ui.day),eb=endBase(ui.day);if(hasLoc(sb))seq.push(sb);seq=seq.concat(dayPins(ui.day).filter(hasLoc));if(hasLoc(eb)&&seq.length&&seq[seq.length-1]!==eb)seq.push(eb)}
+  if(ui.tab==='plan'||ui.tab==='pack'||ui.tab==='today'){var sb=startBase(ui.day),eb=endBase(ui.day);if(hasLoc(sb))seq.push(sb);seq=seq.concat(dayPins(ui.day).filter(hasLoc));if(hasLoc(eb)&&seq.length&&seq[seq.length-1]!==eb)seq.push(eb)}
   map.getSource('route').setData(fc(seq.length>1?[{type:'Feature',geometry:{type:'LineString',coordinates:seq.map(function(p){return [p.lng,p.lat]})},properties:{}}]:[]));
 }
 function fit(){if(map)map.flyTo({center:HOME.c,zoom:HOME.z,duration:700})}
@@ -398,15 +399,160 @@ function showResults(){var el=$('#sRes');if(!el)return;
   $$('[data-sa]',el).forEach(function(b){b.onclick=function(){var r=sResults[+b.getAttribute('data-sa')],before=snap();var p={id:uid(),name:r.name.slice(0,80),lat:+r.lat.toFixed(5),lng:+r.lng.toFixed(5),cat:r.cat,stage:'queue',booked:false,day:0,order:nextOrder(),notes:r.where?'Near '+r.where:''};state.pins.push(p);commit();sResults=[];render();flyTo(p,4);toast(p.name+' added to queue',before)}});
   $$('[data-sv]',el).forEach(function(b){b.onclick=function(){var r=sResults[+b.getAttribute('data-sv')];if(map)map.flyTo({center:[r.lng,r.lat],zoom:12,duration:700})}});
 }
+
+/* ---------- trip phase ---------- */
+function tripStatus(){
+  if(!state.trip.start)return {phase:'none',day:ui.day};
+  var now=new Date(),todayIso=new Date(now.getTime()-now.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+  var s=Date.parse(state.trip.start+'T00:00:00Z'),t=Date.parse(todayIso+'T00:00:00Z'),d=Math.round((t-s)/864e5)+1;
+  if(d<1)return {phase:'before',day:1,until:1-d};if(d>state.trip.days)return {phase:'after',day:ui.day};return {phase:'during',day:d};
+}
+
+/* ---------- opening hours (OpenStreetMap via Overpass; only when you tap "check") ---------- */
+var DN=['Mo','Tu','We','Th','Fr','Sa','Su'],MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function ohRange(list,tok,n){var m=tok.split('-');var i=list.indexOf(m[0]),j=m[1]!=null?list.indexOf(m[1]):i;if(i<0||j<0)return null;var out=[];for(var k=i;;k=(k+1)%n){out.push(k);if(k===j)break}return out}
+function ohParse(str){
+  str=String(str||'').trim();if(!str)return null;if(/^24\/7$/.test(str))return [{months:null,days:[0,1,2,3,4,5,6],ranges:[[0,1440]]}];
+  var rules=[],parts=str.split(/;|\|\|/);
+  for(var i=0;i<parts.length;i++){var r=parts[i].trim();if(!r)continue;var months=null,days=null,ranges=null;
+    var mm=r.match(/^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))?(?:,(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))?)*)\s*:?\s*/);
+    if(mm){months=[];mm[1].split(',').forEach(function(t){var x=ohRange(MN,t,12);if(x)months=months.concat(x)});r=r.slice(mm[0].length)}
+    var dm=r.match(/^((?:Mo|Tu|We|Th|Fr|Sa|Su|PH|SH)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?(?:\s*,\s*(?:Mo|Tu|We|Th|Fr|Sa|Su|PH|SH)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?)*)\s*/);
+    if(dm){days=[];var onlyHol=true;dm[1].split(/\s*,\s*/).forEach(function(t){if(t==='PH'||t==='SH')return;onlyHol=false;var x=ohRange(DN,t,7);if(x)days=days.concat(x)});r=r.slice(dm[0].length);if(onlyHol)continue}
+    r=r.trim();
+    if(/^(off|closed)\b/i.test(r))ranges=[];
+    else if(r){ranges=[];var bad=false;r.split(/\s*,\s*/).forEach(function(t){var tm=t.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\+?$/);if(!tm){bad=true;return}var s=+tm[1]*60+ +tm[2],e=+tm[3]*60+ +tm[4];if(e<=s)e+=1440;ranges.push([s,e])});if(bad)return null}
+    else if(months||days)ranges=[[0,1440]];
+    else return null;
+    rules.push({months:months,days:days||[0,1,2,3,4,5,6],ranges:ranges});
+  }
+  return rules.length?rules:null;
+}
+function ohOn(str,iso){var rules=ohParse(str);if(!rules||!iso)return null;var d=new Date(iso+'T12:00:00Z'),wd=(d.getUTCDay()+6)%7,mo=d.getUTCMonth(),res=[];
+  rules.forEach(function(r){if(r.months&&r.months.indexOf(mo)<0)return;if(r.days.indexOf(wd)<0)return;res=r.ranges});return res}
+function ohText(ranges){if(!ranges)return '';if(!ranges.length)return 'Closed';return ranges.map(function(r){return r[0]===0&&r[1]===1440?'Open 24h':hm(r[0])+'–'+hm(r[1])}).join(', ')}
+function ohCheck(p,iso,arrive,leave){var rg=ohOn(p.hours,iso);if(rg==null)return null;if(!rg.length)return {bad:true,txt:'Closed that day'};
+  if(arrive!=null){var ok=rg.some(function(r){return arrive>=r[0]-5&&arrive<r[1]});if(!ok){var first=rg[0];return {bad:true,txt:arrive<first[0]?'Opens '+hm(first[0]):'Closed by then ('+ohText(rg)+')'}}
+    var end=rg.filter(function(r){return arrive>=r[0]-5&&arrive<r[1]})[0];if(end&&leave>end[1])return {bad:true,txt:'Closes '+hm(end[1])+' — cut it short'}}
+  return {bad:false,txt:ohText(rg)}}
+function fetchHours(p){
+  if(!hasLoc(p))return Promise.resolve(false);
+  var q='[out:json][timeout:20];nwr(around:250,'+p.lat.toFixed(5)+','+p.lng.toFixed(5)+')["opening_hours"];out tags center 30;';
+  return fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q)).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){
+    var els=(j.elements||[]).filter(function(e){return e.tags&&e.tags.opening_hours});if(!els.length){p.hoursChecked=Date.now();return false}
+    var best=els.filter(function(e){return similar(e.tags.name||e.tags['name:en']||'',p.name)})[0]||null;
+    if(!best){p.hoursChecked=Date.now();return false}
+    p.hours=String(best.tags.opening_hours).slice(0,200);p.hoursSrc='OpenStreetMap';p.hoursChecked=Date.now();return true}).catch(function(){return null});
+}
+
+/* ---------- calendar export (.ics built on the phone) ---------- */
+function ldnOffsetMin(iso){try{var f=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',timeZoneName:'shortOffset'});var s=f.formatToParts(new Date(iso+'T12:00:00Z')).filter(function(x){return x.type==='timeZoneName'})[0].value;var m=s.match(/GMT([+-]\d+)?(?::(\d+))?/);return m&&m[1]?(+m[1])*60+(m[2]?(+m[2])*(m[1][0]==='-'?-1:1):0):0}catch(e){return 0}}
+function icsTime(iso,min){var off=ldnOffsetMin(iso),d=new Date(Date.parse(iso+'T00:00:00Z')+(min-off)*6e4);return d.toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'')}
+function icsEsc(s){return String(s||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/([,;])/g,'\\$1')}
+function icsFold(l){var out='';while(l.length>73){out+=l.slice(0,73)+'\r\n ';l=l.slice(73)}return out+l}
+function buildICS(withPrivate){
+  var L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Trip Planner//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Scotland trip'],now=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,''),count=0;
+  for(var n=1;n<=state.trip.days;n++){var iso=isoDate(n);if(!iso)continue;var dp=dayPlan(n);
+    dp.rows.forEach(function(r){var p=r.p,desc=[];if(r.leg&&r.from)desc.push('~'+dur(r.leg)+' drive from '+r.from.name);if(p.notes)desc.push(p.notes);if(p.hours)desc.push('Hours: '+p.hours);if(withPrivate){if(p.conf)desc.push('Booking ref: '+p.conf);if(+p.cost)desc.push('Cost: £'+p.cost)}
+      if(hasLoc(p))desc.push(gmaps(p));
+      L.push('BEGIN:VEVENT','UID:'+p.id+'-d'+n+'@trip-planner','DTSTAMP:'+now,'DTSTART:'+icsTime(iso,r.arrive),'DTEND:'+icsTime(iso,Math.max(r.leave,r.arrive+15)),icsFold('SUMMARY:'+icsEsc((p.booked?'✓ ':'')+p.name)),icsFold('DESCRIPTION:'+icsEsc(desc.join('\n'))));
+      if(hasLoc(p))L.push('GEO:'+p.lat.toFixed(5)+';'+p.lng.toFixed(5),icsFold('LOCATION:'+icsEsc(p.name)));
+      L.push('END:VEVENT');count++});
+  }
+  L.push('END:VCALENDAR');return {ics:L.join('\r\n')+'\r\n',count:count};
+}
+function exportICS(){
+  if(!state.trip.start){toast('Set your trip dates under Trip first');return}
+  editing=true;
+  $('#sheet').innerHTML='<h2>Add to Calendar</h2><p class="small">Creates a calendar file on your phone with each planned stop at its scheduled time. Nothing is uploaded by this app. Calendars often sync to iCloud or Google, so private details are left out unless you tick the box.</p>'+
+    '<label class="chk" style="display:flex;margin:8px 0"><input type="checkbox" id="icPriv"> Include booking refs &amp; costs</label>'+
+    '<ol class="small steps"><li>Tap <b>Create calendar file</b> and choose <b>Save to Files</b> or open it.</li><li>Open the file. iPhone asks to <b>Add All</b> events, so pick a calendar (a new one called “Scotland” keeps it tidy).</li><li>Re-plan later? Delete that calendar and export again.</li></ol>'+
+    '<div class="acts"><button class="btn primary" id="icGo">Create calendar file</button><span class="grow"></span><button class="btn" id="icDone">Close</button></div><div class="small" id="icMsg" style="min-height:18px;margin-top:6px"></div>';
+  $('#ov').classList.remove('hidden');
+  $('#icDone').onclick=closeSheet;
+  $('#icGo').onclick=function(){var x=buildICS($('#icPriv').checked);if(!x.count){$('#icMsg').textContent='No stops are planned on any day yet.';return}
+    shareOrDownload('scotland-trip.ics',x.ics,'text/calendar').then(function(r){$('#icMsg').textContent=r==='cancelled'?'Cancelled.':x.count+' stops ready. Open the file to add them.'},function(){$('#icMsg').textContent='Couldn’t create the file here.'})};
+}
+
+/* ---------- safety card (fully offline; your location never leaves the phone) ---------- */
+var HOSP=[['Raigmore Hospital, Inverness',57.4740,-4.1925],['Belford Hospital, Fort William',56.8205,-5.1063],['Broadford Hospital, Skye',57.2405,-5.9170],['Lorn & Islands Hospital, Oban',56.4013,-5.4734],['Western Isles Hospital, Stornoway',58.2161,-6.3870],['Caithness General, Wick',58.4404,-3.0930],["Dr Gray's Hospital, Elgin",57.6470,-3.3255],['Balfour Hospital, Kirkwall',58.9727,-2.9540],['Gilbert Bain Hospital, Lerwick',60.1533,-1.1520],['Aberdeen Royal Infirmary',57.1540,-2.1370],['Ninewells Hospital, Dundee',56.4640,-3.0390],['Perth Royal Infirmary',56.3960,-3.4590],['Forth Valley Royal, Larbert',56.0330,-3.8170],['Royal Infirmary of Edinburgh',55.9214,-3.1355],['Queen Elizabeth University Hospital, Glasgow',55.8620,-4.3410],['Glasgow Royal Infirmary',55.8655,-4.2340],['University Hospital Crosshouse, Kilmarnock',55.6175,-4.5550],['Dumfries & Galloway Royal Infirmary',55.0800,-3.5800],['Borders General Hospital, Melrose',55.5960,-2.7430],["St John's Hospital, Livingston",55.8860,-3.5230],['Victoria Hospital, Kirkcaldy',56.1240,-3.1700]];
+function osGrid(lat,lon){
+  var r=Math.PI/180,a=6378137,b=6356752.3142,e2=1-b*b/(a*a),ph=lat*r,la=lon*r,sp=Math.sin(ph),cp=Math.cos(ph);
+  var nu=a/Math.sqrt(1-e2*sp*sp),x=nu*cp*Math.cos(la),y=nu*cp*Math.sin(la),z=(1-e2)*nu*sp;
+  var tx=-446.448,ty=125.157,tz=-542.060,s=20.4894e-6,rx=-0.1502/3600*r,ry=-0.2470/3600*r,rz=-0.8421/3600*r;
+  var x2=tx+(1+s)*x-rz*y+ry*z,y2=ty+rz*x+(1+s)*y-rx*z,z2=tz-ry*x+rx*y+(1+s)*z;
+  a=6377563.396;b=6356256.909;e2=1-b*b/(a*a);var p=Math.sqrt(x2*x2+y2*y2),phi=Math.atan2(z2,p*(1-e2)),phiP=2*Math.PI;
+  while(Math.abs(phi-phiP)>1e-12){nu=a/Math.sqrt(1-e2*Math.sin(phi)*Math.sin(phi));phiP=phi;phi=Math.atan2(z2+e2*nu*Math.sin(phi),p)}
+  var lam=Math.atan2(y2,x2),F0=0.9996012717,ph0=49*r,la0=-2*r,N0=-100000,E0=400000,n=(a-b)/(a+b),n2=n*n,n3=n*n*n;
+  var cos=Math.cos(phi),sin=Math.sin(phi);nu=a*F0/Math.sqrt(1-e2*sin*sin);var rho=a*F0*(1-e2)/Math.pow(1-e2*sin*sin,1.5),eta2=nu/rho-1;
+  var Ma=(1+n+(5/4)*n2+(5/4)*n3)*(phi-ph0),Mb=(3*n+3*n*n+(21/8)*n3)*Math.sin(phi-ph0)*Math.cos(phi+ph0),Mc=((15/8)*n2+(15/8)*n3)*Math.sin(2*(phi-ph0))*Math.cos(2*(phi+ph0)),Md=(35/24)*n3*Math.sin(3*(phi-ph0))*Math.cos(3*(phi+ph0)),M=b*F0*(Ma-Mb+Mc-Md);
+  var cos3=cos*cos*cos,cos5=cos3*cos*cos,tan2=Math.tan(phi)*Math.tan(phi),tan4=tan2*tan2;
+  var I=M+N0,II=(nu/2)*sin*cos,III=(nu/24)*sin*cos3*(5-tan2+9*eta2),IIIA=(nu/720)*sin*cos5*(61-58*tan2+tan4),IV=nu*cos,V=(nu/6)*cos3*(nu/rho-tan2),VI=(nu/120)*cos5*(5-18*tan2+tan4+14*eta2-58*tan2*eta2);
+  var dl=lam-la0,N=I+II*dl*dl+III*Math.pow(dl,4)+IIIA*Math.pow(dl,6),E=E0+IV*dl+V*Math.pow(dl,3)+VI*Math.pow(dl,5);
+  if(E<0||E>=700000||N<0||N>=1300000)return null;
+  var e100=Math.floor(E/100000),n100=Math.floor(N/100000),l1=(19-n100)-(19-n100)%5+Math.floor((e100+10)/5),l2=(19-n100)*5%25+e100%5;
+  if(l1>7)l1++;if(l2>7)l2++;var letters=String.fromCharCode(l1+65,l2+65),e=Math.floor(E%100000),nn=Math.floor(N%100000);
+  function pad(v,d){v=String(Math.floor(v/Math.pow(10,5-d)));while(v.length<d)v='0'+v;return v}
+  return {six:letters+' '+pad(e,3)+' '+pad(nn,3),ten:letters+' '+pad(e,5)+' '+pad(nn,5)};
+}
+function nearestHosp(pt,k){return HOSP.map(function(h){var d=km(pt,{lat:h[1],lng:h[2]});return {n:h[0],lat:h[1],lng:h[2],d:d}}).sort(function(x,y){return x.d-y.d}).slice(0,k||3)}
+function openSafety(){
+  editing=true;var st=tripStatus(),ref=wxPlace(st.day)||{lat:57.0,lng:-4.6,name:'the Highlands'};
+  function hospHtml(pt,label){return '<div class="small o" style="margin-bottom:4px">Nearest hospitals with an emergency department'+(label?' to '+esc(label):'')+':</div>'+nearestHosp(pt,3).map(function(h){return '<div class="srow"><span class="grow">'+esc(h.n)+' <span class="o">· '+Math.round(h.d*0.621)+' mi</span></span><a class="btn sm" href="https://www.google.com/maps/dir/?api=1&destination='+h.lat+','+h.lng+'" target="_blank" rel="noopener">Directions</a></div>'}).join('')}
+  $('#sheet').innerHTML='<h2>🆘 Safety card</h2>'+
+  '<div class="sos"><a class="btn big danger2" href="tel:999">Call 999</a><a class="btn big" href="tel:112">or 112</a></div>'+
+  '<div class="card"><div class="ct">On the hill</div><div class="small"><b>Dial 999, ask for Police, then Mountain Rescue.</b> Have ready: where you are (grid ref below), who’s hurt and how, the weather, and your phone number. Then stay put, keep warm, and save battery.</div>'+
+  '<div class="small" style="margin-top:6px"><b>No signal for calls?</b> A text to 999 can still get through, but <b>only if you registered first</b>. Do it now: <a href="sms:999&body=register">text “register” to 999</a> and follow the reply.</div></div>'+
+  '<div class="card"><div class="ct">Where am I?</div><div id="sfLoc" class="small o">Uses your phone’s GPS. Your location stays on this phone and isn’t sent anywhere.</div><div class="acts"><button class="btn primary" id="sfGps">Get my grid reference</button></div></div>'+
+  '<div class="card" id="sfHosp">'+hospHtml(ref,ref.name)+'</div>'+
+  '<div class="card"><div class="ct">Not an emergency</div><div class="srow"><span class="grow">NHS 111: urgent medical advice, 24/7</span><a class="btn sm" href="tel:111">Call</a></div><div class="srow"><span class="grow">Police non-emergency</span><a class="btn sm" href="tel:101">101</a></div></div>'+
+  '<div class="card"><div class="ct">US citizens</div><div class="srow"><span class="grow">US Embassy London, 24/7 emergencies<br><span class="o">+44 20 7499 9000</span></span><a class="btn sm" href="tel:+442074999000">Call</a></div><div class="srow"><span class="grow">US Consulate General Edinburgh<br><span class="o">+44 131 556 8315 · weekdays, office hours</span></span><a class="btn sm" href="tel:+441315568315">Call</a></div><div class="small o" style="margin-top:4px">Lost passport, arrest, hospital stay: the consulate helps. Enroll in <a href="https://step.state.gov" target="_blank" rel="noopener">STEP</a> before you fly.</div></div>'+
+  '<div class="card"><div class="ct">Before a hill day</div><ul class="al" style="color:inherit"><li>Check the mountain forecast: <a href="https://www.mwis.org.uk/forecasts/scottish" target="_blank" rel="noopener">MWIS</a></li><li>Tell someone your route and when you’ll be back.</li><li>Off the hill by ~3:30pm; carry a headlamp anyway.</li><li>Charged phone + power bank; download offline maps (Trip → Save maps).</li><li>Roads & ferries: <a href="https://trafficscotland.org" target="_blank" rel="noopener">Traffic Scotland</a> · <a href="https://www.calmac.co.uk/service-status" target="_blank" rel="noopener">CalMac status</a></li></ul></div>'+
+  '<div class="acts"><span class="grow"></span><button class="btn" id="sfDone">Close</button></div>';
+  $('#ov').classList.remove('hidden');$('#sfDone').onclick=closeSheet;
+  $('#sfGps').onclick=function(){var el=$('#sfLoc');if(!navigator.geolocation){el.textContent='GPS isn’t available in this browser.';return}el.textContent='Finding you… (step outside or near a window if it’s slow)';
+    navigator.geolocation.getCurrentPosition(function(pos){var c=pos.coords,g=osGrid(c.latitude,c.longitude),txt=(g?'Grid ref '+g.six+' ('+g.ten+')':'')+' · '+c.latitude.toFixed(5)+', '+c.longitude.toFixed(5)+' · ±'+Math.round(c.accuracy)+' m';
+      el.className='small';el.innerHTML='<div class="gridref">'+esc(g?g.six:c.latitude.toFixed(5)+', '+c.longitude.toFixed(5))+'</div>'+esc(txt)+'<div class="acts"><a class="btn sm" href="sms:&body='+encodeURIComponent('My location: '+txt)+'">Text it</a><button class="btn sm" id="sfCopy">Copy</button></div>';
+      $('#sfCopy').onclick=function(){try{navigator.clipboard.writeText(txt).then(function(){toast('Copied')})}catch(e){}};
+      $('#sfHosp').innerHTML=hospHtml({lat:c.latitude,lng:c.longitude},'you')},
+      function(err){el.textContent=err&&err.code===1?'Location permission is off. Settings → Privacy → Location Services → Safari Websites (or this app) → While Using.':'Couldn’t get a fix. Try again in the open.'},{enableHighAccuracy:true,timeout:20000,maximumAge:30000})};
+}
+
+/* ---------- Today ---------- */
+var todayTimer=null;
+function renderToday(){
+  var st=tripStatus(),n=st.day,h='';
+  if(st.phase==='before')h+='<div class="card hero"><div class="ct">Countdown</div><div class="big2">'+st.until+' day'+(st.until===1?'':'s')+'</div><div class="small">until Day 1 ('+esc(dayDate(1))+'). Here’s Day 1 so far:</div></div>';
+  else if(st.phase==='none')h+='<div class="card hero"><div class="small">Set your trip dates under <b>Trip</b> and this screen becomes your daily dashboard. Showing Day '+n+' for now.</div></div>';
+  else if(st.phase==='after')h+='<div class="card hero"><div class="small">Trip’s over: welcome home. Showing Day '+n+'.</div></div>';
+  var dp=dayPlan(n),nowMin=ldnMin(new Date()),live=st.phase==='during';
+  h+='<div class="sect"><span>'+esc(dayLabel(n))+(live?' · today':'')+'</span><button class="lnk" data-act="goplan">Edit plan →</button></div>'+wxLine(n);
+  var toSet=dp.sun.set-nowMin;
+  h+='<div class="sunrow small" style="padding:0 6px 6px"><span>☀ Sunset '+hm(dp.sun.set)+(live&&toSet>0&&toSet<720?' · <b>'+dur(toSet)+' of light left</b>':'')+'</span><span>'+(dp.rows.length?'Back ~'+hm(dp.finish):'')+'</span></div>';
+  var next=null;if(dp.rows.length){next=live?dp.rows.filter(function(r){return r.leave>nowMin&&r.p.stage==='queue'})[0]:dp.rows[0]}
+  if(next){var p=next.p,leaveBy=next.arrive-(next.leg||0),late=live&&nowMin>leaveBy+5&&nowMin<next.arrive,hrs=p.hours?ohCheck(p,dp.date,next.arrive,next.leave):null;
+    h+='<div class="card nextc"><div class="ct">'+(live&&nowMin>=next.arrive?'Now':'Next up')+'</div><div class="nname">'+esc(p.name)+'</div>'+
+      '<div class="small">'+(next.leg?'Leave by <b>'+hm(leaveBy)+'</b> · ~'+dur(next.leg)+' drive · ':'')+'arrive '+hm(next.arrive)+', '+dur(mins(p))+' there'+(late?' · <b class="warn">running late</b>':'')+'</div>'+
+      (hrs?'<div class="small '+(hrs.bad?'warn':'bk')+'">'+esc(hrs.txt)+'</div>':'')+(p.booked||p.conf?'<div class="small">'+(p.booked?'<b class="bk">Booked</b> ':'')+(p.slot?esc(p.slot)+' ':'')+(p.conf?'· ref '+esc(p.conf):'')+'</div>':'')+
+      '<div class="acts">'+(hasLoc(p)?'<a class="btn primary" href="https://www.google.com/maps/dir/?api=1&destination='+p.lat.toFixed(5)+','+p.lng.toFixed(5)+'&travelmode=driving" target="_blank" rel="noopener">Navigate ↗</a>':'')+'<button class="btn" data-act="open" data-id="'+p.id+'">Details</button>'+(live?'<button class="btn" data-act="done" data-id="'+p.id+'">✓ Done</button>':'')+'</div></div>';}
+  else h+='<div class="empty">Nothing planned for this day. Add stops in Plan.</div>';
+  if(dp.rows.length>1){h+='<div class="sect"><span>Rest of the day</span></div>';dp.rows.forEach(function(r,i){if(next&&r===next)return;if(live&&r.leave<=nowMin)return;var c=r.p.hours?ohCheck(r.p,dp.date,r.arrive,r.leave):null;h+=row(r.p,{num:i+1,meta:['<b>'+hm(r.arrive)+'</b>',dur(mins(r.p))].concat(c&&c.bad?['<b class="warn">'+esc(c.txt)+'</b>']:[]),actions:''})})}
+  var o=outfit(n);h+='<div class="card"><div class="ct">Wear today</div><div class="kit">'+o.wear.map(function(id){return '<span class="k w">'+esc(gearName(id))+'</span>'}).join('')+'</div>'+(o.alerts.length?'<ul class="al">'+o.alerts.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'<button class="lnk" data-act="gopack">Full kit list →</button></div>';
+  var spentToday=state.spend.items.filter(function(e){return e.day===n}).reduce(function(s,e){return s+usd(e)},0);
+  h+='<div class="card"><div class="srow"><span class="grow">Spent on Day '+n+': <b>'+usdf(spentToday)+'</b></span><button class="btn sm" data-act="gospend">Log a purchase</button></div></div>';
+  h+='<button class="btn sosb" data-act="safety">🆘 Safety card: 999, grid ref, hospitals</button>';
+  return h;
+}
+
 /* ---------- panel ---------- */
 function renderTabs(){
   var q=inStage('queue').length,lib=inStage('library').length,dn=inStage('done').length,pl=state.pins.filter(function(p){return p.stage==='queue'&&p.day}).length;
   var pk=state.pack.items.filter(function(i){return i.packed}).length+'/'+state.pack.items.length;
   var spent=state.spend.items.reduce(function(s,e){return s+usd(e)},0);
-  var tabs=[['queue','Queue',q],['plan','Plan',pl],['pack','Pack',pk],['spend','Spend',usdf(spent)],['library','Library',lib],['done','Done',dn]];
-  $('#tabs').innerHTML=tabs.map(function(t){return '<button class="tab'+(ui.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+' <span class="n">'+t[2]+'</span></button>'}).join('')+'<button class="tab tog" id="tog">'+(ui.min?'▲':'▼')+'</button>';
+  var tabs=[['today','Today',''],['queue','Queue',q],['plan','Plan',pl],['pack','Pack',pk],['spend','Spend',usdf(spent)],['library','Library',lib],['done','Done',dn]];
+  $('#tabs').innerHTML=tabs.map(function(t){return '<button class="tab'+(ui.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+(t[2]!==''?' <span class="n">'+t[2]+'</span>':'')+'</button>'}).join('')+'<button class="tab tog" id="tog">'+(ui.min?'▲':'▼')+'</button>';
   $$('[data-tab]').forEach(function(b){b.onclick=function(){var nt=b.getAttribute('data-tab');if(ui.min){ui.min=false;$('#panel').classList.remove('min');setTimeout(resize,60)}ui.tab=nt;saveUI();render();$('#pbody').scrollTop=0;
-    if(nt==='plan'||nt==='pack')fitDay(ui.day);else if(nt==='queue')fitTo(inStage('queue'));else if(nt==='done')fitTo(inStage('done'))}});
+    if(nt==='plan'||nt==='pack'||nt==='today'){if(nt==='today')ui.day=tripStatus().day;fitDay(ui.day)}else if(nt==='queue')fitTo(inStage('queue'));else if(nt==='done')fitTo(inStage('done'))}});
   $('#tog').onclick=function(){ui.min=!ui.min;$('#panel').classList.toggle('min',ui.min);saveUI();renderTabs();setTimeout(resize,60)};
 }
 function catSelect(){return '<select data-act="cat" class="mini"><option value="all">All types</option>'+Object.keys(CATS).map(function(k){return '<option value="'+k+'"'+(ui.cat===k?' selected':'')+'>'+CATS[k][0]+'</option>'}).join('')+'</select>'}
@@ -426,7 +572,7 @@ function baseOptions(sel,label){
 function wxLine(n){
   var w=wxFor(n);
   if(w)return '<div class="wx"><b>'+cF(+w.hiC)+'° / '+cF(+w.loC)+'°F</b> <span class="o">('+Math.round(+w.hiC)+'/'+Math.round(+w.loC)+'°C)</span> · '+esc(w.summary||'')+' · rain '+(w.rainPct!=null?w.rainPct+'%':'?')+' · gusts '+(w.gustMph!=null?w.gustMph+' mph':'?')+(w.place?' <span class="o">@ '+esc(w.place)+'</span>':'')+'</div>';
-  return '<div class="wx o">'+(isoDate(n)?'No forecast yet — the morning pull starts 7 days before Day 1.':'Set your dates under Trip to get forecasts.')+' Outfit below uses typical mid-Nov weather.</div>';
+  return '<div class="wx o">'+(isoDate(n)?'No forecast yet. Forecasts appear once a day is within 16 days and has a base or a stop.':'Set your dates under Trip to get forecasts.')+' Outfit below uses typical mid-Nov weather.</div>';
 }
 function outfitCard(n,compact){
   var o=outfit(n),h='<div class="card"><div class="ct">'+(o.est?'Typical-day outfit':'Today’s outfit')+'</div>';
@@ -438,7 +584,8 @@ function outfitCard(n,compact){
 }
 function renderPanel(){
   var b=$('#pbody'),h='';
-  if(ui.tab==='queue'){
+  if(ui.tab==='today'){h+=renderToday()}
+  else if(ui.tab==='queue'){
     var up=unplanned().filter(catOk),planned=state.pins.filter(function(p){return p.stage==='queue'&&p.day&&catOk(p)});
     h+='<div class="addbar"><input id="sQ" class="mini grow" type="search" autocomplete="off" placeholder="🔎 Search places (e.g. Sligachan, Old Man of Storr)"></div><div id="sRes"></div>';
     h+='<div class="addbar"><textarea id="qAdd" rows="1" placeholder="Or paste Google Maps links / coordinates, one per line"></textarea><button class="btn primary" id="qGo">Add</button></div>';
@@ -460,14 +607,14 @@ function renderPanel(){
       '<div class="small">'+dur(dp.drive)+' driving + '+dur(dp.onsite)+' at stops → back ~'+hm(dp.finish)+(over?' <b class="warn">('+dur(dp.finish-dp.sun.set)+' after sunset)</b>':' <b class="bk">fits in daylight</b>')+'</div>'+
       '<div class="two" style="margin-top:8px"><div class="f"><label>Start from</label><select data-act="sbase">'+baseOptions(c.start,startBase(n)&&!c.start?'Last night’s base ('+esc(startBase(n).name)+')':'Choose a base…')+'</select></div><div class="f"><label>Sleep at</label><select data-act="ebase">'+baseOptions(c.end,'Same as start')+'</select></div></div>'+
       dayRouteLink(dp)+(dp.warn.length?'<ul class="al">'+dp.warn.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'</div>';
-    h+='<div class="sect"><span>Stops</span>'+(dp.rows.length?'<button class="lnk" data-act="clearday">Clear day</button>':'')+'</div>';
+    h+='<div class="sect"><span>Stops</span><span>'+(dp.rows.length?'<button class="lnk" data-act="hoursday">Check opening hours</button> <button class="lnk" data-act="clearday">Clear day</button>':'')+'</span></div>';
     if(!dp.rows.length)h+='<div class="empty">Nothing planned yet. Add from your queue below.</div>';
     if(hasLoc(dp.start)&&dp.rows.length)h+='<div class="leg">⌂ '+esc(dp.start.name)+' · leave '+hm(dp.leaveAt)+'</div>';
     var wet=isWet(wxFor(n));
     dp.rows.forEach(function(r,i){
       var p=r.p;if(r.leg)h+='<div class="leg">↓ ~'+dur(r.leg)+' drive · '+Math.round(km(r.from,p)*ROAD)+' km'+(r.from&&hasLoc(p)?' · <a href="'+gdir(r.from,p)+'" target="_blank" rel="noopener">directions</a>':'')+'</div>';
       var sw=byId(p.swapId),meta=['<b>'+hm(r.arrive)+'–'+hm(r.leave)+'</b>',dur(mins(p))];
-      if(r.late)meta.push('<b class="warn">ends after dark</b>');if(r.miss)meta.push('<b class="warn">late for '+esc(p.slot)+'</b>');if(p.booked)meta.push('<b class="bk">Booked'+(p.slot?' '+esc(p.slot):'')+'</b>');if(+p.cost)meta.push(money(+p.cost));
+      if(r.late)meta.push('<b class="warn">ends after dark</b>');if(p.hours){var hc=ohCheck(p,dp.date,r.arrive,r.leave);if(hc)meta.push(hc.bad?'<b class="warn">'+esc(hc.txt)+'</b>':'<span class="bk">'+esc(hc.txt)+'</span>')}if(r.miss)meta.push('<b class="warn">late for '+esc(p.slot)+'</b>');if(p.booked)meta.push('<b class="bk">Booked'+(p.slot?' '+esc(p.slot):'')+'</b>');if(+p.cost)meta.push(money(+p.cost));
       var acts=(sw?'<button class="btn sm'+(wet?' hot':'')+'" data-act="swap" data-id="'+p.id+'" title="Swap with '+esc(sw.name)+'">☔ '+esc(sw.name.slice(0,14))+'</button>':'')+'<button class="ib" data-act="up" data-id="'+p.id+'">▲</button><button class="ib" data-act="dn" data-id="'+p.id+'">▼</button><button class="ib" title="Mark done" data-act="done" data-id="'+p.id+'">✓</button><button class="ib" title="Back to queue" data-act="unplan" data-id="'+p.id+'">↩</button>';
       h+=row(p,{num:i+1,meta:meta,actions:acts});
     });
@@ -478,7 +625,7 @@ function renderPanel(){
     h+='<div class="sect"><span>From your queue ('+up2.length+')</span></div>';
     if(!up2.length)h+='<div class="empty">Queue is empty — add places in the Queue tab.</div>';
     up2.forEach(function(p){h+=row(p,{faded:true,actions:'<button class="btn sm" data-act="addday" data-id="'+p.id+'">+ Day '+n+'</button>'})});
-    h+='<div class="sect"><span>Take it offline</span></div><div class="small" style="padding:0 6px 6px">Export your queued and planned places as a CSV for Google My Maps, then open that map in the Google Maps app and download the area for offline use. <button class="btn sm" data-act="export">Export for Google Maps</button></div>';
+    h+='<div class="sect"><span>Take it offline</span></div><div class="small" style="padding:0 6px 6px">Export your queued and planned places as a CSV for Google My Maps, then open that map in the Google Maps app and download the area for offline use. <button class="btn sm" data-act="export">Export for Google Maps</button> <button class="btn sm" data-act="ics">Add to Calendar</button></div>';
   }
   else if(ui.tab==='pack'){
     h+=dayChips();
@@ -579,6 +726,12 @@ function act(a,el){
     case 'packdel':var it2=state.pack.items.filter(function(x){return x.id===id})[0];state.pack.items=state.pack.items.filter(function(x){return x.id!==id});commit();render();if(it2)toast('Removed '+it2.name,before);return;
     case 'unpackall':state.pack.items.forEach(function(x){x.packed=false});commit();render();toast('All unticked',before);return;
     case 'export':exportCSV();return;
+    case 'ics':exportICS();return;
+    case 'safety':openSafety();return;
+    case 'open':if(hasLoc(p))flyTo(p,5);openEditor(p.id);return;
+    case 'gospend':ui.tab='spend';saveUI();render();$('#pbody').scrollTop=0;return;
+    case 'hoursday':var hp=dayPins(n).filter(function(x){return hasLoc(x)&&!x.hours});if(!hp.length){toast('Nothing left to check');return}el.textContent='Checking…';el.disabled=true;
+      (function go(i,found){if(i>=hp.length){commit();render();toast('Found hours for '+found+' of '+hp.length+' stops');return}fetchHours(hp[i]).then(function(ok){setTimeout(function(){go(i+1,found+(ok?1:0))},1100)})})(0,0);return;
     case 'spcur':state.spend.cur=el.getAttribute('data-c');commit();$$('.segs.cur .seg').forEach(function(s){s.classList.toggle('on',s===el)});return;
     case 'logpin':state.spend.items.push({id:'e'+uid(),amt:+p.cost,cur:'GBP',cat:spCatFor(p),day:p.day||0,note:p.name,ts:Date.now(),src:p.id});p.paid=true;commit();render();toast('Logged '+gbpf(+p.cost)+' for '+p.name,before);return;
     case 'spdel':var e=state.spend.items.filter(function(x){return x.id===id})[0];if(!e)return;state.spend.items=state.spend.items.filter(function(x){return x!==e});if(e.src){var sp2=byId(e.src);if(sp2)sp2.paid=false}commit();render();toast('Removed purchase',before);return;
@@ -626,6 +779,7 @@ function openEditor(id,isNew){
   '<div class="f"><label>Where it lives</label><div class="segs" id="eStage">'+seg+'</div></div>'+
   '<div class="three"><div class="f"><label>Type</label><select id="eCat">'+Object.keys(CATS).map(function(k){return '<option value="'+k+'"'+(p.cat===k?' selected':'')+'>'+CATS[k][0]+'</option>'}).join('')+'</select></div><div class="f"><label>Day</label><select id="eDay">'+days+'</select></div><div class="f"><label>Time there (min)</label><input id="eMins" type="number" min="0" step="15" placeholder="'+(CATS[p.cat]||CATS.scenic)[2]+'" value="'+(p.mins!=null?esc(p.mins):'')+'"></div></div>'+
   '<label class="chk" id="eHighW" style="margin-bottom:8px;display:'+(p.cat==='hike'?'flex':'none')+'"><input type="checkbox" id="eHigh"'+(p.high?' checked':'')+'> High or exposed hill (adds ice / wind checks)</label>'+
+  '<div class="f"><label>Opening hours'+(p.hoursSrc?' <span class="o">(from '+esc(p.hoursSrc)+', check before you go)</span>':'')+'</label><div class="srow"><input id="eHours" class="grow" placeholder="e.g. Mo-Su 09:30-16:00 or Nov-Mar: Sa,Su 10:00-16:00" value="'+esc(p.hours||'')+'">'+(hasLoc(p)?'<button class="btn sm" id="eHrsGo" title="Looks up OpenStreetMap. Sends this pin’s location to the Overpass map service.">Look up</button>':'')+'</div><div class="small o" id="eHrsMsg">'+(p.hours&&!ohParse(p.hours)?'Can’t read this format automatically; shown as written.':'')+'</div></div>'+
   '<div class="f"><label>Bad-weather swap</label><select id="eSwap">'+swaps+'</select></div>'+
   '<details class="bkbox"'+(p.booked||p.conf||p.cost||p.slot?' open':'')+'><summary>Booking &amp; cost</summary><label class="chk" style="margin:8px 0;display:flex"><input type="checkbox" id="eBk"'+(p.booked?' checked':'')+'> Booked / tickets sorted</label>'+
   '<div class="three"><div class="f"><label>Time slot</label><input id="eSlot" placeholder="10:30" value="'+esc(p.slot||'')+'"></div><div class="f"><label>Booking ref</label><input id="eConf" value="'+esc(p.conf||'')+'"></div><div class="f"><label>Cost (£)</label><input id="eCost" type="number" min="0" step="0.5" value="'+(p.cost!=null?esc(p.cost):'')+'"></div></div></details>'+
@@ -643,7 +797,9 @@ function openEditor(id,isNew){
     $('#eHighW').style.display=p.cat==='hike'?'flex':'none';$('#eMins').placeholder=(CATS[p.cat]||CATS.scenic)[2];
     var nd=+$('#eDay').value;if(nd!==p.day){p.day=nd;p.order=nextOrder();if(nd&&p.stage!=='queue'){p.stage='queue';$$('#eStage .seg').forEach(function(s){s.classList.toggle('on',s.getAttribute('data-stage')==='queue')})}}
     p.seed=false;commit();drawPins();drawRoute();renderTabs();renderPanel()}
-  ['eName','eNotes','eMins','eSlot','eConf','eCost'].forEach(function(x){$('#'+x).oninput=upd});['eCat','eDay','eBk','eHigh','eSwap'].forEach(function(x){$('#'+x).onchange=upd});
+  ['eName','eNotes','eMins','eSlot','eConf','eCost'].forEach(function(x){$('#'+x).oninput=upd});
+  $('#eHours').onchange=function(){var v=this.value.trim().slice(0,200);p.hours=v||null;p.hoursSrc=v?'you':null;$('#eHrsMsg').textContent=v&&!ohParse(v)?'Can’t read this format automatically; shown as written.':'';commit();renderPanel()};
+  var hg=$('#eHrsGo');if(hg)hg.onclick=function(){hg.disabled=true;hg.textContent='…';fetchHours(p).then(function(ok){hg.disabled=false;hg.textContent='Look up';if(ok){$('#eHours').value=p.hours;$('#eHrsMsg').textContent='Found on OpenStreetMap. Winter hours can differ, so confirm on the official site.';commit();renderPanel()}else $('#eHrsMsg').textContent=ok===null?'Couldn’t reach the lookup service.':'No hours listed on OpenStreetMap. Type them in if you know them.'})};['eCat','eDay','eBk','eHigh','eSwap'].forEach(function(x){$('#'+x).onchange=upd});
   $$('#eStage .seg').forEach(function(s){s.onclick=function(){p.stage=s.getAttribute('data-stage');if(p.stage!=='queue'){p.day=0;$('#eDay').value='0'}else p.order=nextOrder();$$('#eStage .seg').forEach(function(x){x.classList.toggle('on',x===s)});upd()}});
   var el=$('#eLoc');if(el)el.oninput=function(){var c=parseCoords(this.value);if(!c)return;p.lat=c.lat;p.lng=c.lng;var nm=nameFromLink(this.value);if(nm&&(p.name==='Unnamed place'))p.name=nm;commit();openEditor(p.id);flyTo(p,5)};
   $('#eDone').onclick=closeSheet;
@@ -703,7 +859,9 @@ function render(){
 }
 function resize(){if(map)map.resize()}
 $('#panel').classList.toggle('min',!!ui.min);
+if(tripStatus().phase==='during')ui.tab='today';
 render();initMap();
+setInterval(function(){if(ui.tab==='today'&&!editing&&document.visibilityState==='visible'&&!$('#pbody').contains(document.activeElement))renderPanel()},60000);
 try{new ResizeObserver(function(){clearTimeout(rz);rz=setTimeout(resize,80)}).observe($('#mapwrap'))}catch(e){}
 setSave('Saved on this phone');
 maybeRefresh();

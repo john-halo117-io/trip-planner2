@@ -184,3 +184,13 @@ button,.chip,.tab,.seg,.ib{touch-action:manipulation}
 .lbn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.14);color:#fff;border:0;width:44px;height:64px;font-size:30px;border-radius:10px}.lbn.l{left:6px}.lbn.r{right:6px}
 .lbx{position:absolute;top:calc(10px + env(safe-area-inset-top));right:10px;background:rgba(255,255,255,.16);color:#fff;border:0;width:40px;height:40px;border-radius:50%;font-size:18px}
 .lbi{position:absolute;top:calc(18px + env(safe-area-inset-top));left:14px;color:#cfd8db;font-size:12px}
+
+/* today + safety */
+.hero{background:#eef4f5;border-color:#d3e3e6}.big2{font:600 30px Fraunces,Georgia,serif;margin:2px 0}
+.nextc{border-color:#c6d9de;box-shadow:0 1px 4px rgba(43,93,107,.12)}.nname{font:600 19px Fraunces,Georgia,serif;margin-bottom:4px}
+.nextc .acts a.btn{text-decoration:none}
+.sosb{width:calc(100% - 4px);margin:10px 2px 4px;padding:13px;background:#fff1ef;border-color:#e7b9b3;color:#9b2c22;font-weight:600}
+.sos{display:flex;gap:8px;margin-bottom:10px}.btn.big{flex:1;text-align:center;padding:14px;font-size:18px;font-weight:700;text-decoration:none}
+.btn.danger2{background:#b3261e;border-color:#b3261e;color:#fff}
+.srow{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px}.srow a.btn{text-decoration:none;flex:none}.srow input{border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-width:0}
+.gridref{font:700 24px ui-monospace,Menlo,monospace;letter-spacing:.04em;color:var(--ink);margin:2px 0 4px}

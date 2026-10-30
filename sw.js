@@ -1,7 +1,7 @@
 /* Trip Planner service worker.
    App shell: offline, refreshed in the background. Map tiles: cache-first, capped.
    Weather/exchange rates: network-first with offline fallback. Place searches are never cached. */
-const SHELL='shell-v3',TILES='tiles-v1',DATA='data-v1',PHOTOS='photos-v1',TILE_CAP=8000,PHOTO_CAP=400;
+const SHELL='shell-v4',TILES='tiles-v1',DATA='data-v1',PHOTOS='photos-v1',TILE_CAP=8000,PHOTO_CAP=400;
 const SHELL_URLS=['./','./index.html','./app.js','./style.css','./fonts.css','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png','./vendor/maplibre-gl.js','./vendor/maplibre-gl.css',
  './vendor/fonts/inter-latin-400-normal.woff2','./vendor/fonts/inter-latin-500-normal.woff2','./vendor/fonts/inter-latin-600-normal.woff2','./vendor/fonts/fraunces-latin-600-normal.woff2'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>Promise.all(SHELL_URLS.map(u=>c.add(u).catch(()=>{})))).then(()=>self.skipWaiting()))});
@@ -18,7 +18,7 @@ self.addEventListener('fetch',e=>{
     e.respondWith(caches.open(PHOTOS).then(c=>c.match(req.url).then(hit=>hit||fetch(req).then(r=>{if(r.ok||r.type==='opaque'){c.put(req.url,r.clone());c.keys().then(ks=>{if(ks.length>PHOTO_CAP)ks.slice(0,ks.length-PHOTO_CAP).forEach(k=>c.delete(k))})}return r}))));return}
   if(/\.wikipedia\.org$|^commons\.wikimedia\.org$/.test(u.hostname)){
     e.respondWith(fetch(req).then(r=>{if(r.ok){const cl=r.clone();caches.open(DATA).then(c=>c.put(req,cl))}return r}).catch(()=>caches.match(req).then(h=>h||Response.error())));return}
-  if(u.hostname==='photon.komoot.io')return; // searches go straight to the network, never stored
+  if(u.hostname==='photon.komoot.io'||u.hostname==='overpass-api.de')return; // searches go straight to the network, never stored
   if(u.hostname==='api.open-meteo.com'||/^api\.frankfurter\.(app|dev)$/.test(u.hostname)){
     e.respondWith(fetch(req).then(r=>{if(r.ok){const cl=r.clone();caches.open(DATA).then(c=>c.put(req,cl))}return r}).catch(()=>caches.match(req).then(h=>h||Response.error())));return}
   if(u.origin===location.origin){
