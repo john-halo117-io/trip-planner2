@@ -1,7 +1,7 @@
 /* Trip Planner service worker.
    App shell: offline, refreshed in the background. Map tiles: cache-first, capped.
    Weather/exchange rates: network-first with offline fallback. Place searches are never cached. */
-const SHELL='shell-v4',TILES='tiles-v1',DATA='data-v1',PHOTOS='photos-v1',TILE_CAP=8000,PHOTO_CAP=400;
+const SHELL='shell-v6',TILES='tiles-v1',DATA='data-v1',PHOTOS='photos-v1',TILE_CAP=8000,PHOTO_CAP=400;
 const SHELL_URLS=['./','./index.html','./app.js','./style.css','./fonts.css','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png','./vendor/maplibre-gl.js','./vendor/maplibre-gl.css',
  './vendor/fonts/inter-latin-400-normal.woff2','./vendor/fonts/inter-latin-500-normal.woff2','./vendor/fonts/inter-latin-600-normal.woff2','./vendor/fonts/fraunces-latin-600-normal.woff2'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(SHELL).then(c=>Promise.all(SHELL_URLS.map(u=>c.add(u).catch(()=>{})))).then(()=>self.skipWaiting()))});

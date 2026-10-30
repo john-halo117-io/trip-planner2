@@ -7,13 +7,13 @@ A phone-first trip planning web app: pin map with real street-level maps, queue 
 - Photos & info: Wikimedia Commons + Wikipedia (credits shown on each photo)
 - Opening hours: OpenStreetMap via Overpass (only when you tap “Look up”)
 - Weather: Open-Meteo · Exchange rates: Frankfurter (ECB)
-- Data lives on the device (localStorage). Use Trip → Copy backup to move or save it.
+- Data lives on the device. Optional **end-to-end encrypted sync** between your devices and a travel partner via your own free Supabase project. See [supabase/README.md](supabase/README.md).
 
 No build step: plain HTML/CSS/JS. Host as static files (GitHub Pages).
 
 ## Security & privacy
 - No API keys or secrets anywhere: every service used is free and keyless.
-- Your trip data never leaves your phone (stored in the browser). The repo only holds the app code and the default list of Scotland ideas.
+- Your trip data stays on your phone. If you turn on sync, it's encrypted on the phone first (AES-256-GCM, keys derived with HKDF from a 256-bit random sync code). The server stores only ciphertext and a SHA-256 of the write key, the table is locked behind row-level security, and the app can only call three narrow functions.
 - The site sets a strict Content-Security-Policy: scripts only from this site; network calls only to the map, weather, exchange-rate and place-search services listed above.
 - MapLibre and the fonts are self-hosted at pinned versions during deploy (MapLibre checksum-verified), so no third-party scripts or fonts load.
 - GitHub Actions are pinned to exact commits; Dependabot watches them for updates.

@@ -13,6 +13,12 @@ var GEAR=[
  ['Feet','socks','Wool hiking socks',3],['Feet','boots','Lowa mids (re-proofed)',1],['Feet','gaiters','Leg gaiters',1],['Feet','spikes','Microspikes',1],
  ['Day pack','daypack','Daypack + rain cover / dry bag',1],['Day pack','headlamp','Headlamp + spare batteries',1],['Day pack','thermos','Thermos / water bottle',1],['Day pack','power','Power bank + cable',1],['Day pack','maps','Offline maps downloaded',1],['Day pack','firstaid','First-aid kit',1],['Day pack','snacks','Trail snacks',1],
  ['Town & travel','town','Casual outfit + dry shoes for evenings',1],['Town & travel','docs','Passport + booking confirmations',1],['Town & travel','adapter','UK plug adapter',1]];
+var GEAR_GENERIC=[['Layers','base_top','Base-layer top (merino/synthetic)',2],['Layers','base_bot','Base-layer leggings',1],['Layers','fleece','Fleece mid-layer',1],['Layers','puffy','Insulated puffy jacket',1],['Layers','shell','Waterproof jacket',1],['Layers','pants','Hiking trousers',2],['Layers','overpants','Waterproof overtrousers',1],
+ ['Head & hands','beanie','Warm hat',1],['Head & hands','neck','Neck gaiter / buff',1],['Head & hands','liners','Liner gloves',1],['Head & hands','wgloves','Waterproof gloves',1],
+ ['Feet','socks','Wool hiking socks',3],['Feet','boots','Waterproof hiking boots',1],['Feet','gaiters','Leg gaiters',1],['Feet','spikes','Microspikes',1],
+ ['Day pack','daypack','Daypack + rain cover',1],['Day pack','headlamp','Headlamp',1],['Day pack','thermos','Water bottle / thermos',1],['Day pack','snacks','Trail snacks',1],
+ ['Town & travel','town','Evening outfit + dry shoes',1],['Town & travel','docs','Passport + tickets',1]];
+var PCOL=['#2b5d6b','#c0612f','#7a4a8c','#2f7d4f','#c28a12','#c2577a'];
 var GEARNAME={};GEAR.forEach(function(g){GEARNAME[g[1]]=g[2]});
 
 function $(s){return document.querySelector(s)}
@@ -35,12 +41,20 @@ function migrate(s){
     if(!CATS[p.cat])p.cat='scenic';if(!STAGES[p.stage])p.stage='library';p.day=Math.max(0,Math.min(60,parseInt(p.day,10)||0));p.order=num(p.order)||0;
     p.lat=num(p.lat);p.lng=num(p.lng);if(p.lat!=null&&(Math.abs(p.lat)>90))p.lat=null;if(p.lng!=null&&Math.abs(p.lng)>180)p.lng=null;
     p.cost=p.cost==null||p.cost===''?null:num(p.cost);p.mins=p.mins==null||p.mins===''?null:num(p.mins);
-    ['slot','conf','swapId','hoursSrc'].forEach(function(k){if(p[k]!=null)p[k]=String(p[k]).slice(0,80)});if(p.hours!=null)p.hours=String(p.hours).slice(0,200);p.hoursChecked=num(p.hoursChecked)});
+    ['slot','conf','swapId','hoursSrc'].forEach(function(k){if(p[k]!=null)p[k]=String(p[k]).slice(0,80)});if(p.hours!=null)p.hours=String(p.hours).slice(0,200);p.hoursChecked=num(p.hoursChecked);p.u=num(p.u)||0});
   s.trip.days=Math.max(1,Math.min(30,parseInt(s.trip.days,10)||7));s.trip.start=/^\d{4}-\d{2}-\d{2}$/.test(s.trip.start||'')?s.trip.start:'';
   Object.keys(s.trip.dayCfg).forEach(function(k){var c=s.trip.dayCfg[k]||{};if(c.leave&&!/^\d{1,2}:\d{2}$/.test(c.leave))c.leave='08:30';['start','end'].forEach(function(x){if(c[x])c[x]=String(c[x]).replace(/[^\w-]/g,'')})});
-  if(s.spend&&s.spend.items)s.spend.items=s.spend.items.filter(function(e){return e&&typeof e==='object'}).map(function(e){return {id:String(e.id||uid()).replace(/[^\w-]/g,''),amt:num(e.amt)||0,cur:e.cur==='USD'?'USD':'GBP',cat:String(e.cat||'other').replace(/[^\w]/g,''),day:Math.max(0,parseInt(e.day,10)||0),note:String(e.note||'').slice(0,120),ts:num(e.ts)||0,src:e.src?String(e.src).replace(/[^\w-]/g,''):undefined}});
-  if(s.pack&&s.pack.items)s.pack.items=s.pack.items.filter(function(i){return i&&typeof i==='object'}).map(function(i){return {id:String(i.id||uid()).replace(/[^\w-]/g,''),group:String(i.group||'Other').slice(0,40),name:String(i.name||'').slice(0,100),qty:Math.max(1,parseInt(i.qty,10)||1),packed:!!i.packed}});
+  if(s.spend&&s.spend.items)s.spend.items=s.spend.items.filter(function(e){return e&&typeof e==='object'}).map(function(e){return {id:String(e.id||uid()).replace(/[^\w-]/g,''),amt:num(e.amt)||0,cur:e.cur==='USD'?'USD':'GBP',cat:String(e.cat||'other').replace(/[^\w]/g,''),day:Math.max(0,parseInt(e.day,10)||0),note:String(e.note||'').slice(0,120),ts:num(e.ts)||0,src:e.src?String(e.src).replace(/[^\w-]/g,''):undefined,u:num(e.u)||0}});
+  if(s.pack&&s.pack.items)s.pack.items=s.pack.items.filter(function(i){return i&&typeof i==='object'}).map(function(i){return {id:String(i.id||uid()).replace(/[^\w-]/g,''),group:String(i.group||'Other').slice(0,40),name:String(i.name||'').slice(0,100),qty:Math.max(1,parseInt(i.qty,10)||1),packed:!!i.packed,who:String(i.who||'').replace(/[^\w-]/g,'').slice(0,20),u:num(i.u)||0}});
   s.pins.forEach(function(p){if(p.stage!=='queue')p.day=0;p.day=p.day||0;if(p.lat==null||p.lng==null){p.lat=null;p.lng=null}});
+  if(!Array.isArray(s.people)||!s.people.length)s.people=[{id:'p1',name:'Me',color:PCOL[0],u:0}];
+  s.people=s.people.filter(function(x){return x&&typeof x==='object'}).slice(0,8).map(function(x,i){return {id:String(x.id||('p'+(i+1))).replace(/[^\w-]/g,'').slice(0,20)||('p'+(i+1)),name:String(x.name||'Traveler').slice(0,24),color:/^#[0-9a-f]{6}$/i.test(x.color||'')?x.color:PCOL[i%PCOL.length],u:num(x.u)||0}});
+  var pids={};s.people.forEach(function(x){pids[x.id]=1});
+  s.pack.items.forEach(function(i){if(!pids[i.who])i.who=s.people[0].id});
+  if(!Array.isArray(s.fits))s.fits=[];
+  s.fits=s.fits.filter(function(f){return f&&typeof f==='object'&&pids[f.who]}).map(function(f){var set={};if(f.set&&typeof f.set==='object')Object.keys(f.set).slice(0,60).forEach(function(k){if(/^[\w:-]{1,60}$/.test(k)&&/^(wear|pack|off)$/.test(f.set[k]))set[k]=f.set[k]});
+    return {id:String(f.id||'').replace(/[^\w-]/g,'').slice(0,60),day:Math.max(1,parseInt(f.day,10)||1),who:f.who,set:set,extra:(Array.isArray(f.extra)?f.extra:[]).slice(0,12).map(function(x){return String(x).slice(0,60)}),note:String(f.note||'').slice(0,200),by:String(f.by||'').slice(0,24),u:num(f.u)||0}}).filter(function(f){return f.id});
+  var dl={};if(s.del&&typeof s.del==='object')Object.keys(s.del).forEach(function(k){var t=num(s.del[k]);if(t&&/^[\w-]{1,40}$/.test(k)&&Date.now()-t<90*864e5)dl[k]=t});s.del=dl;
   s.v=3;return s;
 }
 var state;
@@ -50,7 +64,7 @@ if(!state)state=migrate({v:2,updated:0,trip:{start:'',days:7},pins:[]});
 var ui={tab:'queue',day:1,cat:'all',showLib:false,min:false,t:null,q:''};
 try{var u=JSON.parse(localStorage.getItem(LSUI));if(u)for(var k in u)ui[k]=u[k]}catch(e){}
 (function(){var T={today:1,queue:1,plan:1,pack:1,spend:1,library:1,done:1};if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;ui.showLib=!!ui.showLib;
-  var v=ui.view;if(!(v&&v.c&&isFinite(v.c[0])&&isFinite(v.c[1])&&Math.abs(v.c[0])<=180&&Math.abs(v.c[1])<=85&&isFinite(v.z)&&v.z>=0&&v.z<=20))ui.view=null;if(ui.spCat&&!/^\w+$/.test(ui.spCat))ui.spCat='food'})();
+  var v=ui.view;if(!(v&&v.c&&isFinite(v.c[0])&&isFinite(v.c[1])&&Math.abs(v.c[0])<=180&&Math.abs(v.c[1])<=85&&isFinite(v.z)&&v.z>=0&&v.z<=20))ui.view=null;if(ui.spCat&&!/^\w+$/.test(ui.spCat))ui.spCat='food';if(ui.who!=null&&!/^[\w-]{1,20}$/.test(String(ui.who)))ui.who=null})();
 if(ui.day>state.trip.days)ui.day=1;
 function saveUI(){try{localStorage.setItem(LSUI,JSON.stringify(ui))}catch(e){}}
 
@@ -59,22 +73,24 @@ var timer=null,editing=false,pending=false,fxRate=null,fxAt='',wx=state.wx||null
 if(state.fx){fxRate=state.fx.gbpUsd;fxAt=state.fx.at}
 function setSave(t){var el=$('#save');if(el)el.textContent=t}
 function persist(){try{localStorage.setItem(LS,JSON.stringify(state));setSave('Saved')}catch(e){setSave('Couldn’t save — storage full?')}}
-function commit(){state.updated=Date.now();persist();clearTimeout(timer);timer=setTimeout(function(){if(planKey()!==(wx&&wx.key))refreshWx(true)},1500)}
+function commit(){state.updated=Date.now();if(sync){try{stampAll()}catch(e){}}persist();if(sync)scheduleSync();clearTimeout(timer);timer=setTimeout(function(){if(planKey()!==(wx&&wx.key))refreshWx(true)},1500)}
 function busyInput(){return false}
-document.addEventListener('visibilitychange',function(){if(document.hidden)saveUI();else maybeRefresh()});
+document.addEventListener('visibilitychange',function(){if(document.hidden){saveUI();if(sync)syncNow()}else{maybeRefresh();if(sync)scheduleSync(300)}});
+window.addEventListener('online',function(){if(sync)scheduleSync(300)});
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 var WMO={0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Freezing fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',56:'Freezing drizzle',57:'Freezing drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',66:'Freezing rain',67:'Freezing rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Showers',81:'Heavy showers',82:'Violent showers',85:'Snow showers',86:'Heavy snow showers',95:'Thunderstorm',96:'Thunderstorm with hail',99:'Thunderstorm with hail'};
 var wxBusy=false;
 function planKey(){var a=[];for(var n=1;n<=state.trip.days;n++){var b=wxPlace(n);a.push(isoDate(n)+':'+(b?b.lat.toFixed(2)+','+b.lng.toFixed(2):''))}return a.join('|')}
+function localIso(addDays){var d=new Date();d.setDate(d.getDate()+(addDays||0));return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
 function refreshWx(force){
   if(wxBusy||!state.trip.start)return Promise.resolve();
-  var today=new Date().toISOString().slice(0,10),lim=new Date(Date.now()+15*864e5).toISOString().slice(0,10),groups={};
+  var today=localIso(0),lim=localIso(15),groups={};
   for(var n=1;n<=state.trip.days;n++){var d=isoDate(n),b=wxPlace(n);if(!d||!b||d<today||d>lim)continue;var k=b.lat.toFixed(2)+','+b.lng.toFixed(2);(groups[k]=groups[k]||{p:b,dates:[]}).dates.push(d)}
   var keys=Object.keys(groups);if(!keys.length)return Promise.resolve();
   if(!force&&wx&&wx.fetchedAt&&Date.now()-Date.parse(wx.fetchedAt)<3*3600e3&&wx.key===planKey())return Promise.resolve();
   wxBusy=true;var days=Object.assign({},(wx&&wx.days)||{}),ok=0;
   return Promise.all(keys.map(function(k){var g=groups[k];
-    var u='https://api.open-meteo.com/v1/forecast?latitude='+g.p.lat.toFixed(3)+'&longitude='+g.p.lng.toFixed(3)+'&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&wind_speed_unit=mph&timezone=Europe%2FLondon&forecast_days=16';
+    var u='https://api.open-meteo.com/v1/forecast?latitude='+g.p.lat.toFixed(3)+'&longitude='+g.p.lng.toFixed(3)+'&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max&wind_speed_unit=mph&timezone=Europe%2FLondon&past_days=1&forecast_days=16';
     return fetch(u).then(function(r){return r.json()}).then(function(j){var D=j&&j.daily;if(!D)return;ok++;
       D.time.forEach(function(t,i){if(g.dates.indexOf(t)<0)return;var mm=D.precipitation_sum[i],pp=D.precipitation_probability_max[i];if(pp==null)pp=mm>=5?80:mm>=1?50:20;
         days[t]={place:g.p.name,hiC:D.temperature_2m_max[i],loC:D.temperature_2m_min[i],feelsC:D.apparent_temperature_min[i],rainPct:pp,rainMm:mm,windMph:Math.round(D.wind_speed_10m_max[i]||0),gustMph:Math.round(D.wind_gusts_10m_max[i]||0),summary:WMO[D.weather_code[i]]||'',source:'Open-Meteo'}})
@@ -90,6 +106,107 @@ function shareOrDownload(name,text,mime){
   try{var f=new File([text],name,{type:mime||'text/csv'});if(navigator.canShare&&navigator.canShare({files:[f]})){return navigator.share({files:[f],title:name}).then(function(){return 'shared'},function(e){if(e&&e.name==='AbortError')return 'cancelled';throw e})}}catch(e){}
   return new Promise(function(res){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime||'text/csv'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},2000);res('saved')});
 }
+
+/* ---------- end-to-end encrypted sync (Supabase stores only ciphertext) ---------- */
+var LSSYNC='scotPinMap.sync',LSBASE='scotPinMap.syncbase';
+var sync=null,syncK=null,syncBase=null,syncBusy=false,syncAgain=false,syncTimer=null,syncState={msg:'',ok:true,at:0};
+try{sync=JSON.parse(localStorage.getItem(LSSYNC))}catch(e){}
+try{syncBase=JSON.parse(localStorage.getItem(LSBASE))}catch(e){}
+var enc=new TextEncoder(),decd=new TextDecoder();
+function b64u(buf){var s='',b=new Uint8Array(buf);for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function ub64u(s){s=String(s).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function hex(buf){return Array.prototype.map.call(new Uint8Array(buf),function(x){return ('0'+x.toString(16)).slice(-2)}).join('')}
+function validUrl(u){return /^https:\/\/[a-z0-9]{8,40}\.supabase\.co$/.test(u)}
+function keyKind(k){k=String(k||'').trim();if(/^sb_publishable_[A-Za-z0-9_-]{10,}$/.test(k))return 'pub';if(/^sb_secret_/.test(k))return 'secret';
+  var m=k.match(/^[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$/);if(m){try{var p=JSON.parse(decd.decode(ub64u(m[1])));return p.role==='anon'?'pub':p.role==='service_role'?'secret':'bad'}catch(e){}}return 'bad'}
+function deriveKeys(secret){
+  var raw=ub64u(secret);if(raw.length!==32)return Promise.reject(new Error('bad code'));
+  return crypto.subtle.importKey('raw',raw,'HKDF',false,['deriveKey','deriveBits']).then(function(base){
+    var salt=enc.encode('trip-planner-sync-v1');
+    function bits(info,n){return crypto.subtle.deriveBits({name:'HKDF',hash:'SHA-256',salt:salt,info:enc.encode(info)},base,n)}
+    return Promise.all([bits('trip-id',128),bits('write-token',256),crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:salt,info:enc.encode('encryption')},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])])
+      .then(function(r){return {id:hex(r[0]),token:hex(r[1]),key:r[2]}});
+  });
+}
+function seal(obj){var iv=crypto.getRandomValues(new Uint8Array(12));return crypto.subtle.encrypt({name:'AES-GCM',iv:iv,additionalData:enc.encode(syncK.id)},syncK.key,enc.encode(JSON.stringify(obj))).then(function(ct){return 'v1.'+b64u(iv)+'.'+b64u(ct)})}
+function unseal(s){var p=String(s).split('.');if(p[0]!=='v1'||p.length!==3)return Promise.reject(new Error('format'));return crypto.subtle.decrypt({name:'AES-GCM',iv:ub64u(p[1]),additionalData:enc.encode(syncK.id)},syncK.key,ub64u(p[2])).then(function(b){return JSON.parse(decd.decode(b))})}
+function rpc(fn,args){var h={'Content-Type':'application/json',apikey:sync.key};if(keyKind(sync.key)==='pub'&&!/^sb_/.test(sync.key))h.Authorization='Bearer '+sync.key;
+  return fetch(sync.url+'/rest/v1/rpc/'+fn,{method:'POST',headers:h,body:JSON.stringify(args),cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'}).then(function(r){return r.text().then(function(t){var j=null;try{j=JSON.parse(t)}catch(e){}if(!r.ok){var e=new Error((j&&(j.message||j.hint))||('HTTP '+r.status));e.status=r.status;throw e}return j})})}
+function syncable(s){var c=JSON.parse(JSON.stringify(s));delete c.wx;delete c.fx;return c}
+function strip(x){var c=Object.assign({},x);delete c.u;return JSON.stringify(c)}
+function stampColl(cur,old,now,del){var om={};(old||[]).forEach(function(x){om[x.id]=x});var cm={};(cur||[]).forEach(function(x){cm[x.id]=1;var o=om[x.id];if(!o){if(!x.u)x.u=now}else if(strip(x)!==strip(o))x.u=now});(old||[]).forEach(function(x){if(!cm[x.id])del[x.id]=now})}
+function stampAll(){if(!sync||!syncBase)return;var now=Date.now();state.del=state.del||{};stampColl(state.pins,syncBase.pins,now,state.del);stampColl(state.spend.items,syncBase.spend&&syncBase.spend.items,now,state.del);stampColl(state.pack.items,syncBase.pack&&syncBase.pack.items,now,state.del);stampColl(state.people,syncBase.people,now,state.del);stampColl(state.fits,syncBase.fits,now,state.del)}
+function mergeColl(a,b,del){var m={};(a||[]).forEach(function(x){m[x.id]=x});(b||[]).forEach(function(x){var y=m[x.id];if(!y||(x.u||0)>(y.u||0))m[x.id]=x});return Object.keys(m).map(function(k){return m[k]}).filter(function(x){return !(del[x.id]&&del[x.id]>=(x.u||0))})}
+function mergeStates(L,R){var del=Object.assign({},R.del||{});Object.keys(L.del||{}).forEach(function(k){del[k]=Math.max(del[k]||0,L.del[k])});
+  var newer=(R.updated||0)>(L.updated||0)?R:L,out=JSON.parse(JSON.stringify(newer));
+  out.pins=mergeColl(L.pins,R.pins,del);out.spend.items=mergeColl(L.spend.items,R.spend.items,del);out.pack.items=mergeColl(L.pack.items,R.pack.items,del);out.people=mergeColl(L.people,R.people,del);out.fits=mergeColl(L.fits,R.fits,del);
+  out.del=del;out.updated=Math.max(L.updated||0,R.updated||0);out.wx=state.wx;out.fx=state.fx;return out}
+function setBase(s){syncBase=syncable(s);try{localStorage.setItem(LSBASE,JSON.stringify(syncBase))}catch(e){}}
+function saveSyncCfg(){try{if(sync)localStorage.setItem(LSSYNC,JSON.stringify(sync));else{localStorage.removeItem(LSSYNC);localStorage.removeItem(LSBASE)}}catch(e){}}
+function syncStatus(msg,ok){syncState={msg:msg,ok:ok!==false,at:Date.now()};var el=$('#syncMsg');if(el)el.textContent=msg;setSave(ok===false?'⚠ '+msg:msg)}
+function scheduleSync(ms){if(!sync)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,ms==null?2500:ms)}
+function syncNow(){
+  if(!sync)return Promise.resolve();if(syncBusy){syncAgain=true;return Promise.resolve()}
+  if(!navigator.onLine){syncStatus('Offline — will sync later',true);return Promise.resolve()}
+  syncBusy=true;var tries=0;
+  function ready(){return syncK?Promise.resolve():deriveKeys(sync.secret).then(function(k){syncK=k})}
+  function pull(){return rpc('get_trip',{p_id:syncK.id}).then(function(rows){var row=rows&&rows[0];if(!row)return null;
+    if(+row.version===sync.version)return null;
+    return unseal(row.data).then(function(remote){remote=migrate(remote);if(!remote)throw new Error('bad data');
+      stampAll();var merged=mergeStates(syncable(state),remote);state=migrate(merged)||state;sync.version=+row.version;saveSyncCfg();setBase(remote);
+      try{localStorage.setItem(LS,JSON.stringify(state))}catch(e){}if(!editing)render();return true})})}
+  function push(){stampAll();var cur=syncable(state);if(syncBase&&JSON.stringify(cur)===JSON.stringify(syncBase)&&sync.version>0)return Promise.resolve('clean');
+    return seal(cur).then(function(blob){if(blob.length>1900000)throw new Error('Trip too large to sync');return rpc('put_trip',{p_id:syncK.id,p_token:syncK.token,p_expected:sync.version,p_data:blob})}).then(function(v){v=+v;
+      if(v<0){if(++tries>3)throw new Error('Busy — try again');sync.version=sync.version;return pull().then(push)}
+      sync.version=v;saveSyncCfg();setBase(cur);return 'pushed'})}
+  return ready().then(pull).then(push).then(function(){syncStatus('Synced ✓ '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}))},function(e){
+      var m=String(e&&e.message||e);syncStatus(/not allowed/i.test(m)?'Sync refused: this code can’t edit that trip':/Failed to fetch|NetworkError|Load failed/i.test(m)?'Can’t reach sync server — will retry':/bad code|decrypt|OperationError/i.test(m)?'Sync code doesn’t match this trip':'Sync problem: '+m.slice(0,80),false)})
+    .then(function(){syncBusy=false;if(syncAgain){syncAgain=false;scheduleSync(500)}});
+}
+function makeCode(url,key,secret){return 'TP1:'+b64u(enc.encode(JSON.stringify({u:url,k:key,s:secret})))}
+function readCode(c){c=String(c||'').trim().replace(/\s+/g,'');if(!/^TP1:[A-Za-z0-9_-]+$/.test(c))return null;try{var o=JSON.parse(decd.decode(ub64u(c.slice(4))));if(validUrl(o.u)&&keyKind(o.k)==='pub'&&ub64u(o.s).length===32)return {url:o.u,key:o.k,secret:o.s}}catch(e){}return null}
+function startSync(cfg,isNew){
+  sync={url:cfg.url,key:cfg.key,secret:cfg.secret,version:0};syncK=null;
+  if(isNew){setBase({pins:[],spend:{items:[]},pack:{items:[]},people:[],fits:[]});}else{syncBase=null;try{localStorage.removeItem(LSBASE)}catch(e){}}
+  saveSyncCfg();syncStatus('Connecting…');
+  return deriveKeys(sync.secret).then(function(k){syncK=k;
+    if(isNew)return syncNow();
+    return rpc('get_trip',{p_id:k.id}).then(function(rows){var row=rows&&rows[0];if(!row)throw new Error('No trip found for that code');
+      return unseal(row.data).then(function(remote){remote=migrate(remote);
+        /* keep what this phone added or changed before joining (untouched suggestions defer to the shared trip) */
+        var now=Date.now(),tmp={};stampColl(state.pins.filter(function(p){return !p.seed}),remote.pins,now,tmp);stampColl(state.spend.items,remote.spend.items,now,tmp);stampColl(state.pack.items.filter(function(i){return i.packed||/^g/.test(i.id)}),remote.pack.items,now,tmp);
+        var merged=mergeStates(syncable(state),remote);state=migrate(merged);sync.version=+row.version;saveSyncCfg();setBase(remote);persist();render();return syncNow()})});
+  }).catch(function(e){var m=String(e&&e.message||e);sync=null;syncK=null;saveSyncCfg();syncStatus(/decrypt|OperationError/.test(m)?'That code doesn’t unlock this trip':m.slice(0,90),false);throw e});
+}
+function stopSync(){sync=null;syncK=null;saveSyncCfg();clearTimeout(syncTimer);setSave('Saved on this phone')}
+function syncCard(){
+  if(!sync)return '<div class="card"><div class="ct">🔒 Sync &amp; travel partner</div><div class="small">End-to-end encrypted: your trip is locked on this phone before upload, so the server only stores scrambled data. Set up Supabase once (see the guide in the repo), then start here.</div>'+
+    '<div class="f" style="margin-top:8px"><label>Supabase Project URL</label><input id="syURL" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off" autocapitalize="off" spellcheck="false"></div>'+
+    '<div class="f"><label>Publishable key (never the secret key)</label><input id="syKey" placeholder="sb_publishable_…" autocomplete="off" autocapitalize="off" spellcheck="false"></div>'+
+    '<div class="acts"><button class="btn primary" id="syNew">Start syncing this trip</button></div>'+
+    '<div class="f" style="margin-top:10px"><label>…or join with a sync code from your partner or other device</label><textarea id="syCode" placeholder="TP1:…" style="min-height:54px;font-family:ui-monospace,monospace;font-size:12px" autocapitalize="off" spellcheck="false"></textarea></div>'+
+    '<div class="acts"><button class="btn" id="syJoin">Join trip</button></div><div class="small" id="syncMsg" style="min-height:18px"></div></div>';
+  return '<div class="card"><div class="ct">🔒 Sync &amp; travel partner</div><div class="small">On · end-to-end encrypted · '+esc(sync.url.replace('https://',''))+'</div><div class="small" id="syncMsg" style="min-height:18px">'+esc(syncState.msg)+'</div>'+
+    '<div class="acts"><button class="btn" id="sySync">Sync now</button><button class="btn" id="syShare">Share sync code</button></div>'+
+    '<div class="small o" style="margin-top:6px">The sync code is the key to your trip: anyone who has it can read and edit it. Only send it to your partner through an encrypted chat (iMessage or Signal), and never post it anywhere.</div>'+
+    '<div class="acts"><button class="btn" id="syOff">Stop syncing on this phone</button><button class="btn danger" id="syDel">Delete trip from server</button></div></div>';
+}
+function bindSyncCard(){
+  function on(id,fn){var el=$('#'+id);if(el)el.onclick=function(){fn(el)}}
+  on('syNew',function(b){var url=$('#syURL').value.trim().replace(/\/+$/,''),key=$('#syKey').value.trim(),kk=keyKind(key);
+    if(!validUrl(url)){syncStatus('That URL should look like https://abcdefgh.supabase.co',false);return}
+    if(kk==='secret'){$('#syKey').value='';syncStatus('That’s your SECRET key. Never put it in an app. Use the publishable key, and consider rotating the secret one.',false);return}
+    if(kk!=='pub'){syncStatus('That doesn’t look like a publishable key (sb_publishable_…)',false);return}
+    var sec=b64u(crypto.getRandomValues(new Uint8Array(32)));b.disabled=true;startSync({url:url,key:key,secret:sec},true).then(function(){$('#bTrip').click()},function(){b.disabled=false})});
+  on('syJoin',function(b){var cfg=readCode($('#syCode').value);if(!cfg){syncStatus('That isn’t a valid sync code',false);return}b.disabled=true;startSync(cfg,false).then(function(){$('#syCode').value='';$('#bTrip').click()},function(){b.disabled=false})});
+  on('sySync',function(){syncNow()});
+  on('syShare',function(){var code=makeCode(sync.url,sync.key,sync.secret);
+    if(navigator.share)navigator.share({text:code}).catch(function(){});else{try{navigator.clipboard.writeText(code).then(function(){syncStatus('Code copied, so paste it into an encrypted chat')})}catch(e){}}});
+  on('syOff',function(){stopSync();$('#bTrip').click()});
+  var armed=false;on('syDel',function(b){if(!armed){armed=true;b.textContent='Tap again: removes it for everyone';return}
+    b.disabled=true;(syncK?Promise.resolve():deriveKeys(sync.secret).then(function(k){syncK=k})).then(function(){return rpc('delete_trip',{p_id:syncK.id,p_token:syncK.token})}).then(function(){stopSync();toast('Deleted from the server. This phone still has its copy.');$('#bTrip').click()},function(e){b.disabled=false;syncStatus('Couldn’t delete: '+String(e.message||e).slice(0,60),false)})});
+}
+
 /* ---------- undo toast ---------- */
 var undoSnap=null,toastT=null;
 function snap(){return JSON.stringify(state)}
@@ -210,6 +327,59 @@ function usdf(n){return '$'+Math.round(n).toLocaleString()}
 function gbpf(n){return '£'+(Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2})}
 function tripDayToday(){if(!state.trip.start)return 0;var t=new Date(),s=new Date(state.trip.start+'T00:00:00'),d=Math.floor((t-s)/864e5)+1;if(d<1)return 0;if(d>state.trip.days)return ui.day;return d}
 function spCatFor(p){return p.cat==='stay'?'lodging':p.cat==='food'?'food':'tickets'}
+
+
+/* ---------- travelers & per-person outfits ---------- */
+function people(){return state.people}
+function me(){var id=null;try{id=localStorage.getItem('scotPinMap.me')}catch(e){}return byPerson(id)||state.people[0]}
+function byPerson(id){for(var i=0;i<state.people.length;i++)if(state.people[i].id===id)return state.people[i];return null}
+function curPerson(){return byPerson(ui.who)||me()}
+function gearOf(pid){return state.pack.items.filter(function(i){return i.who===pid})}
+function ruleId(i){return String(i.id).replace(/^[\w-]+:/,'')}
+function fitFor(n,pid){var id='f-'+n+'-'+pid;for(var i=0;i<state.fits.length;i++)if(state.fits[i].id===id)return state.fits[i];return null}
+function fitEnsure(n,pid){var f=fitFor(n,pid);if(!f){f={id:'f-'+n+'-'+pid,day:n,who:pid,set:{},extra:[],note:'',by:'',u:0};state.fits.push(f)}return f}
+/* forecast suggestion + that person's overrides -> {wear:[items],pack:[items],off:[items],extra,note,changed,o} */
+function outfitFor(n,pid){
+  var o=outfit(n),f=fitFor(n,pid),gear=gearOf(pid),res={wear:[],pack:[],off:[],extra:f?f.extra:[],note:f?f.note:'',by:f?f.by:'',changed:{},o:o};
+  gear.forEach(function(it){var r=ruleId(it),st=o.wear.indexOf(r)>=0?'wear':o.pack.indexOf(r)>=0?'pack':'off';
+    if(f&&f.set[it.id]){if(f.set[it.id]!==st)res.changed[it.id]=1;st=f.set[it.id]}res[st].push(it)});
+  return res;
+}
+function addPerson(name){var i=state.people.length,id='p'+Date.now().toString(36).slice(-5)+Math.random().toString(36).slice(2,4);
+  state.people.push({id:id,name:String(name).slice(0,24),color:PCOL[i%PCOL.length],u:0});
+  GEAR_GENERIC.forEach(function(g){state.pack.items.push({id:id+':'+g[1],group:g[0],name:g[2],qty:g[3],packed:false,who:id,u:0})});return id}
+function personChips(act){return '<div class="chips">'+state.people.map(function(p){return '<button class="chip pchip'+(curPerson().id===p.id?' on':'')+'" data-act="'+act+'" data-p="'+esc(p.id)+'"><i class="dot" style="background:'+esc(p.color)+'"></i>'+esc(p.name)+(me().id===p.id?' <span class="o">(me)</span>':'')+'</button>'}).join('')+'<button class="chip" data-act="people">＋ / edit</button></div>'}
+function fitEditor(n){
+  var p=curPerson(),r=outfitFor(n,p.id),w=r.o;
+  function chip(it,st){return '<button class="k fit '+st+(r.changed[it.id]?' chg':'')+'" data-act="fitcycle" data-id="'+esc(it.id)+'" data-st="'+st+'">'+esc(it.name)+'</button>'}
+  var h='<div class="card"><div class="ct">'+esc(p.name)+'’s outfit · Day '+n+(w.est?' <span class="o">(typical weather)</span>':'')+'</div>'+
+   '<div class="small o" style="margin-bottom:6px">Starts from the forecast. Tap an item to move it: Wear → Pack → Not today.'+(Object.keys(r.changed).length||r.extra.length||r.note?' <button class="lnk" data-act="fitreset">Reset to forecast</button>':'')+'</div>'+
+   '<div class="kit"><span class="kl">Wear</span>'+(r.wear.map(function(it){return chip(it,'wear')}).join('')||'<span class="small o">nothing yet</span>')+r.extra.map(function(x,i){return '<button class="k fit wear chg" data-act="fitxdel" data-i="'+i+'">'+esc(x)+' ✕</button>'}).join('')+'</div>'+
+   '<div class="kit"><span class="kl">In the pack</span>'+(r.pack.map(function(it){return chip(it,'pack')}).join('')||'<span class="small o">nothing</span>')+'</div>'+
+   '<details class="offbox"'+(r.off.length&&Object.keys(r.changed).length?' open':'')+'><summary>Not today ('+r.off.length+')</summary><div class="kit" style="margin-top:6px">'+r.off.map(function(it){return chip(it,'off')}).join('')+'</div></details>'+
+   '<div class="srow" style="margin-top:6px"><input id="fitX" class="grow" placeholder="Add something for today (e.g. sunglasses)" maxlength="60"><button class="btn sm" data-act="fitxadd">Add</button></div>'+
+   '<div class="f" style="margin:6px 0 0"><label>Note for '+esc(p.name)+(r.by?' <span class="o">· last edited by '+esc(r.by)+'</span>':'')+'</label><input id="fitNote" placeholder="e.g. wear the blue jacket for photos" maxlength="200" value="'+esc(r.note)+'"></div>'+
+   (w.alerts.length?'<ul class="al">'+w.alerts.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'</div>';
+  return h;
+}
+function wearSummary(n){return '<div class="card"><div class="ct">Wear today</div>'+state.people.map(function(p){var r=outfitFor(n,p.id);
+  return '<div class="who"><span class="wn"><i class="dot" style="background:'+esc(p.color)+'"></i>'+esc(p.name)+'</span><div class="kit">'+r.wear.map(function(it){return '<span class="k w">'+esc(it.name)+'</span>'}).join('')+r.extra.map(function(x){return '<span class="k w chg">'+esc(x)+'</span>'}).join('')+'</div>'+(r.note?'<div class="small fitnote">📝 '+esc(r.note)+'</div>':'')+'</div>'}).join('')+
+  (outfit(n).alerts.length?'<ul class="al">'+outfit(n).alerts.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'<button class="lnk" data-act="gopack">Change outfits →</button></div>'}
+function openPeople(){
+  editing=true;var my=me();
+  $('#sheet').innerHTML='<h2>Travelers</h2><div class="small o" style="margin-bottom:8px">Each person gets their own packing list and daily outfit. Anyone on the trip can adjust anyone’s outfit, and it syncs.</div>'+
+   state.people.map(function(p){return '<div class="srow"><i class="dot" style="background:'+esc(p.color)+'"></i><input class="grow" data-pn="'+esc(p.id)+'" value="'+esc(p.name)+'" maxlength="24"><label class="chk"><input type="radio" name="meis" data-me="'+esc(p.id)+'"'+(my.id===p.id?' checked':'')+'> this is me</label>'+(state.people.length>1?'<button class="ib" data-pdel="'+esc(p.id)+'" title="Remove">🗑</button>':'')+'</div>'}).join('')+
+   '<div class="srow" style="margin-top:8px"><input id="pNew" class="grow" placeholder="Add a traveler (first name)" maxlength="24"><button class="btn sm" id="pAdd">Add</button></div>'+
+   '<div class="small o" style="margin-top:6px">“This is me” is remembered on this phone only.</div><div class="acts"><span class="grow"></span><button class="btn primary" id="pDone">Done</button></div>';
+  $('#ov').classList.remove('hidden');
+  $$('[data-pn]').forEach(function(inp){inp.onchange=function(){var p=byPerson(inp.getAttribute('data-pn'));p.name=inp.value.trim().slice(0,24)||'Traveler';commit()}});
+  $$('[data-me]').forEach(function(r){r.onchange=function(){try{localStorage.setItem('scotPinMap.me',r.getAttribute('data-me'))}catch(e){}}});
+  $$('[data-pdel]').forEach(function(b){var armed=false;b.onclick=function(){if(!armed){armed=true;b.textContent='Sure?';return}var id=b.getAttribute('data-pdel'),before=snap();
+    state.people=state.people.filter(function(p){return p.id!==id});state.pack.items=state.pack.items.filter(function(i){return i.who!==id});state.fits=state.fits.filter(function(f){return f.who!==id});if(ui.who===id)ui.who=null;commit();openPeople();toast('Traveler removed',before)}});
+  $('#pAdd').onclick=function(){var v=$('#pNew').value.trim();if(!v)return;if(state.people.length>=8){toast('Up to 8 travelers');return}var id=addPerson(v);ui.who=id;saveUI();commit();openPeople()};
+  $('#pNew').onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();$('#pAdd').click()}};
+  $('#pDone').onclick=closeSheet;
+}
 
 /* Quick add: one place per line. */
 function quickAdd(text,day){
@@ -537,7 +707,7 @@ function renderToday(){
       '<div class="acts">'+(hasLoc(p)?'<a class="btn primary" href="https://www.google.com/maps/dir/?api=1&destination='+p.lat.toFixed(5)+','+p.lng.toFixed(5)+'&travelmode=driving" target="_blank" rel="noopener">Navigate ↗</a>':'')+'<button class="btn" data-act="open" data-id="'+p.id+'">Details</button>'+(live?'<button class="btn" data-act="done" data-id="'+p.id+'">✓ Done</button>':'')+'</div></div>';}
   else h+='<div class="empty">Nothing planned for this day. Add stops in Plan.</div>';
   if(dp.rows.length>1){h+='<div class="sect"><span>Rest of the day</span></div>';dp.rows.forEach(function(r,i){if(next&&r===next)return;if(live&&r.leave<=nowMin)return;var c=r.p.hours?ohCheck(r.p,dp.date,r.arrive,r.leave):null;h+=row(r.p,{num:i+1,meta:['<b>'+hm(r.arrive)+'</b>',dur(mins(r.p))].concat(c&&c.bad?['<b class="warn">'+esc(c.txt)+'</b>']:[]),actions:''})})}
-  var o=outfit(n);h+='<div class="card"><div class="ct">Wear today</div><div class="kit">'+o.wear.map(function(id){return '<span class="k w">'+esc(gearName(id))+'</span>'}).join('')+'</div>'+(o.alerts.length?'<ul class="al">'+o.alerts.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'<button class="lnk" data-act="gopack">Full kit list →</button></div>';
+  h+=wearSummary(n);
   var spentToday=state.spend.items.filter(function(e){return e.day===n}).reduce(function(s,e){return s+usd(e)},0);
   h+='<div class="card"><div class="srow"><span class="grow">Spent on Day '+n+': <b>'+usdf(spentToday)+'</b></span><button class="btn sm" data-act="gospend">Log a purchase</button></div></div>';
   h+='<button class="btn sosb" data-act="safety">🆘 Safety card: 999, grid ref, hospitals</button>';
@@ -547,12 +717,13 @@ function renderToday(){
 /* ---------- panel ---------- */
 function renderTabs(){
   var q=inStage('queue').length,lib=inStage('library').length,dn=inStage('done').length,pl=state.pins.filter(function(p){return p.stage==='queue'&&p.day}).length;
-  var pk=state.pack.items.filter(function(i){return i.packed}).length+'/'+state.pack.items.length;
+  var pkm=gearOf(curPerson().id),pk=pkm.filter(function(i){return i.packed}).length+'/'+pkm.length;
   var spent=state.spend.items.reduce(function(s,e){return s+usd(e)},0);
   var tabs=[['today','Today',''],['queue','Queue',q],['plan','Plan',pl],['pack','Pack',pk],['spend','Spend',usdf(spent)],['library','Library',lib],['done','Done',dn]];
   $('#tabs').innerHTML=tabs.map(function(t){return '<button class="tab'+(ui.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+(t[2]!==''?' <span class="n">'+t[2]+'</span>':'')+'</button>'}).join('')+'<button class="tab tog" id="tog">'+(ui.min?'▲':'▼')+'</button>';
   $$('[data-tab]').forEach(function(b){b.onclick=function(){var nt=b.getAttribute('data-tab');if(ui.min){ui.min=false;$('#panel').classList.remove('min');setTimeout(resize,60)}ui.tab=nt;saveUI();render();$('#pbody').scrollTop=0;
     if(nt==='plan'||nt==='pack'||nt==='today'){if(nt==='today')ui.day=tripStatus().day;fitDay(ui.day)}else if(nt==='queue')fitTo(inStage('queue'));else if(nt==='done')fitTo(inStage('done'))}});
+  try{var at=$('#tabs .tab.on');if(at)at.scrollIntoView({block:'nearest',inline:'nearest'})}catch(e){}
   $('#tog').onclick=function(){ui.min=!ui.min;$('#panel').classList.toggle('min',ui.min);saveUI();renderTabs();setTimeout(resize,60)};
 }
 function catSelect(){return '<select data-act="cat" class="mini"><option value="all">All types</option>'+Object.keys(CATS).map(function(k){return '<option value="'+k+'"'+(ui.cat===k?' selected':'')+'>'+CATS[k][0]+'</option>'}).join('')+'</select>'}
@@ -620,7 +791,7 @@ function renderPanel(){
     });
     if(dp.back&&hasLoc(dp.end))h+='<div class="leg">↓ ~'+dur(dp.back)+' drive · <a href="'+gdir(dp.lastStop,dp.end)+'" target="_blank" rel="noopener">directions</a><br>⌂ '+esc(dp.end.name)+' · ~'+hm(dp.finish)+'</div>';
     if(dp.rows.length&&!hasLoc(dp.start))h+='<div class="small" style="padding:4px 6px">Tip: set where you’re starting from so the first drive counts.</div>';
-    h+=outfitCard(n,true);
+    h+=wearSummary(n);
     var up2=unplanned();
     h+='<div class="sect"><span>From your queue ('+up2.length+')</span></div>';
     if(!up2.length)h+='<div class="empty">Queue is empty — add places in the Queue tab.</div>';
@@ -628,17 +799,18 @@ function renderPanel(){
     h+='<div class="sect"><span>Take it offline</span></div><div class="small" style="padding:0 6px 6px">Export your queued and planned places as a CSV for Google My Maps, then open that map in the Google Maps app and download the area for offline use. <button class="btn sm" data-act="export">Export for Google Maps</button> <button class="btn sm" data-act="ics">Add to Calendar</button></div>';
   }
   else if(ui.tab==='pack'){
+    var P=curPerson();
     h+=dayChips();
     h+='<div class="sect"><span>'+esc(dayLabel(ui.day))+'</span>'+(wx&&wx.fetchedAt?'<span class="o">forecast '+esc(new Date(wx.fetchedAt).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+'</span>':'')+'</div>';
-    h+=wxLine(ui.day)+outfitCard(ui.day,false);
-    var o=outfit(ui.day),today={};o.wear.concat(o.pack).forEach(function(id){today[id]=1});
-    var groups={};state.pack.items.forEach(function(it){(groups[it.group||'Other']=groups[it.group||'Other']||[]).push(it)});
-    var done=state.pack.items.filter(function(i){return i.packed}).length;
-    h+='<div class="sect"><span>Packing list · '+done+'/'+state.pack.items.length+'</span><button class="lnk" data-act="unpackall">Untick all</button></div>';
-    h+='<div class="addbar"><input id="packAdd" class="mini grow" placeholder="Add an item (e.g. Spare laces)"><button class="btn sm" id="packGo">Add</button></div>';
+    h+=wxLine(ui.day)+personChips('who')+fitEditor(ui.day);
+    var fr=outfitFor(ui.day,P.id),today={};fr.wear.concat(fr.pack).forEach(function(it){today[it.id]=1});
+    var mine=gearOf(P.id),groups={};mine.forEach(function(it){(groups[it.group||'Other']=groups[it.group||'Other']||[]).push(it)});
+    var done=mine.filter(function(i){return i.packed}).length;
+    h+='<div class="sect"><span>'+esc(P.name)+'’s packing list · '+done+'/'+mine.length+'</span><button class="lnk" data-act="unpackall">Untick all</button></div>';
+    h+='<div class="addbar"><input id="packAdd" class="mini grow" placeholder="Add an item for '+esc(P.name)+'" maxlength="80"><button class="btn sm" id="packGo">Add</button></div>';
     Object.keys(groups).forEach(function(g){
       h+='<div class="pg">'+esc(g)+'</div>';
-      groups[g].forEach(function(it){h+='<label class="pi'+(it.packed?' on':'')+'"><input type="checkbox" data-act="packtick" data-id="'+it.id+'"'+(it.packed?' checked':'')+'><span class="grow">'+esc(it.name)+(it.qty>1?' <span class="o">×'+it.qty+'</span>':'')+(today[it.id]?' <span class="today">day '+ui.day+'</span>':'')+'</span><button class="ib" data-act="packdel" data-id="'+it.id+'" title="Remove">✕</button></label>'});
+      groups[g].forEach(function(it){h+='<label class="pi'+(it.packed?' on':'')+'"><input type="checkbox" data-act="packtick" data-id="'+esc(it.id)+'"'+(it.packed?' checked':'')+'><span class="grow">'+esc(it.name)+(it.qty>1?' <span class="o">×'+it.qty+'</span>':'')+(today[it.id]?' <span class="today">day '+ui.day+'</span>':'')+'</span><button class="ib" data-act="packdel" data-id="'+esc(it.id)+'" title="Remove">✕</button></label>'});
     });
   }
   else if(ui.tab==='spend'){
@@ -677,6 +849,7 @@ function renderPanel(){
     dn.forEach(function(p){h+=row(p,{actions:'<button class="ib" title="Back to queue" data-act="toq" data-id="'+p.id+'">↩</button>'})});
   }
   b.innerHTML=h;
+  try{$$('.chips',b).forEach(function(c){var on=c.querySelector('.chip.on');if(on)c.scrollLeft=Math.max(0,on.offsetLeft-c.clientWidth/2+on.clientWidth/2)})}catch(e){}
   var sq=$('#sQ');if(sq){sq.oninput=function(){var v=this.value.trim();clearTimeout(sTimer);if(v.length<3){sResults=[];$('#sRes').innerHTML='';return}sTimer=setTimeout(function(){searchPlaces(v)},350)}}
   var qa=$('#qAdd');if(qa){qa.oninput=function(){this.style.height='auto';this.style.height=Math.min(140,this.scrollHeight)+'px'};
     qa.onkeydown=function(e){if(e.key==='Enter'&&!e.shiftKey&&this.value.indexOf('\n')<0){e.preventDefault();$('#qGo').click()}};
@@ -690,7 +863,9 @@ function renderPanel(){
     $('#spBud').onchange=function(){var v=parseFloat(this.value);state.spend.budgetUsd=v>0?v:null;commit();render()};
     $('#spRate').onchange=function(){var v=parseFloat(this.value);if(v>0){state.spend.rate=v;state.spend.rateManual=true}else{state.spend.rateManual=false}commit();render()};
   }
-  var pa=$('#packAdd');if(pa){pa.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();$('#packGo').click()}};$('#packGo').onclick=function(){var v=pa.value.trim();if(!v)return;state.pack.items.push({id:'g'+uid(),group:'My extras',name:v.slice(0,80),qty:1,packed:false});pa.value='';commit();render()}}
+  var fn=$('#fitNote');if(fn)fn.onchange=function(){var f=fitEnsure(ui.day,curPerson().id);f.note=this.value.trim().slice(0,200);f.by=me().name;commit()};
+  var fx=$('#fitX');if(fx)fx.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();act('fitxadd',fx)}};
+  var pa=$('#packAdd');if(pa){pa.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();$('#packGo').click()}};$('#packGo').onclick=function(){var v=pa.value.trim();if(!v)return;state.pack.items.push({id:'g'+uid(),group:'My extras',name:v.slice(0,80),qty:1,packed:false,who:curPerson().id});pa.value='';commit();render()}}
 }
 $('#pbody').addEventListener('click',function(e){
   var t=e.target.closest('[data-act]');
@@ -724,9 +899,15 @@ function act(a,el){
     case 'up':case 'dn':var l=dayPins(n),i=l.indexOf(p),j=i+(a==='up'?-1:1);if(j<0||j>=l.length)return;l.forEach(function(q,k){q.order=k+1});var o=l[i].order;l[i].order=l[j].order;l[j].order=o;commit();render();return;
     case 'packtick':var it=state.pack.items.filter(function(x){return x.id===id})[0];if(it){it.packed=el.checked;commit();renderTabs();el.closest('.pi').classList.toggle('on',el.checked)}return;
     case 'packdel':var it2=state.pack.items.filter(function(x){return x.id===id})[0];state.pack.items=state.pack.items.filter(function(x){return x.id!==id});commit();render();if(it2)toast('Removed '+it2.name,before);return;
-    case 'unpackall':state.pack.items.forEach(function(x){x.packed=false});commit();render();toast('All unticked',before);return;
+    case 'unpackall':gearOf(curPerson().id).forEach(function(x){x.packed=false});commit();render();toast('All unticked',before);return;
     case 'export':exportCSV();return;
     case 'ics':exportICS();return;
+    case 'who':ui.who=el.getAttribute('data-p');saveUI();renderPanel();return;
+    case 'people':openPeople();return;
+    case 'fitcycle':var P=curPerson(),f=fitEnsure(n,P.id),cur=el.getAttribute('data-st'),nx=cur==='wear'?'pack':cur==='pack'?'off':'wear';f.set[id]=nx;f.by=me().name;commit();renderPanel();return;
+    case 'fitreset':var f2=fitFor(n,curPerson().id);if(f2){f2.set={};f2.extra=[];f2.note='';f2.by=me().name}commit();renderPanel();toast('Back to the forecast suggestion',before);return;
+    case 'fitxadd':var xv=($('#fitX').value||'').trim().slice(0,60);if(!xv)return;var f3=fitEnsure(n,curPerson().id);if(f3.extra.length<12)f3.extra.push(xv);f3.by=me().name;commit();renderPanel();return;
+    case 'fitxdel':var f4=fitFor(n,curPerson().id);if(f4){f4.extra.splice(+el.getAttribute('data-i'),1);f4.by=me().name}commit();renderPanel();return;
     case 'safety':openSafety();return;
     case 'open':if(hasLoc(p))flyTo(p,5);openEditor(p.id);return;
     case 'gospend':ui.tab='spend';saveUI();render();$('#pbody').scrollTop=0;return;
@@ -811,6 +992,7 @@ $('#bTrip').onclick=function(){
   var total=state.pins.filter(function(p){return p.stage!=='library'}).reduce(function(a,p){return a+(+p.cost||0)},0);
   $('#sheet').innerHTML='<h2>Trip settings</h2><div class="two"><div class="f"><label>First day</label><input type="date" id="tStart" value="'+esc(state.trip.start)+'"></div><div class="f"><label>Number of days</label><input type="number" min="1" max="30" id="tDays" value="'+state.trip.days+'"></div></div>'+
   '<p class="small">Weather is live from Open-Meteo for any trip day up to 16 days out, using each day’s base (or first stop). It refreshes when you open the app.'+(wx&&wx.fetchedAt?' Last update: '+esc(new Date(wx.fetchedAt).toLocaleString())+'.':'')+' <button class="lnk" id="tWx">Refresh now</button></p>'+
+  syncCard()+
   '<div class="card"><div class="ct">Offline maps</div><div class="small">Saves the Scotland overview plus close-up map around every queued place, for when signal drops. Use Wi-Fi; roughly 20–60 MB.</div><div class="acts"><button class="btn" id="tOff">Save maps for offline</button></div><div class="small" id="tOffMsg"></div></div>'+
   '<div class="card"><div class="ct">On iPhone</div><div class="small">In Safari tap Share → <b>Add to Home Screen</b>. It opens full-screen like an app, can use your location, and keeps your data on the phone. Copy a backup now and then.</div></div>'+
   (total?'<p class="small">Booked costs so far: <b>'+money(total)+'</b></p>':'')+
@@ -819,6 +1001,7 @@ $('#bTrip').onclick=function(){
   $('#tJson').value=JSON.stringify(state);$('#ov').classList.remove('hidden');
   $('#tStart').onchange=$('#tDays').onchange=function(){state.trip.start=$('#tStart').value;state.trip.days=Math.max(1,Math.min(30,+$('#tDays').value||7));state.pins.forEach(function(p){if(p.day>state.trip.days)p.day=0});if(ui.day>state.trip.days)ui.day=1;commit();render()};
   $('#tCopy').onclick=function(){var t=$('#tJson');try{navigator.clipboard.writeText(t.value).then(function(){$('#tMsg').textContent='Copied.'},function(){t.select();$('#tMsg').textContent='Selected — copy it manually.'})}catch(e){t.select();$('#tMsg').textContent='Selected — copy it manually.'}};
+  bindSyncCard();
   $('#tRestore').onclick=function(){try{var s=migrate(JSON.parse($('#tJson').value));if(!s)throw 0;state=s;commit();render();$('#tMsg').textContent='Restored '+s.pins.length+' places.'}catch(e){$('#tMsg').textContent='That isn’t a valid backup.'}};
   $('#tExp').onclick=function(){exportCSV()};
   $('#tWx').onclick=function(){this.textContent='Refreshing…';refreshWx(true).then(function(){var b=$('#tWx');if(b)b.textContent='Updated'})};
@@ -863,7 +1046,8 @@ if(tripStatus().phase==='during')ui.tab='today';
 render();initMap();
 setInterval(function(){if(ui.tab==='today'&&!editing&&document.visibilityState==='visible'&&!$('#pbody').contains(document.activeElement))renderPanel()},60000);
 try{new ResizeObserver(function(){clearTimeout(rz);rz=setTimeout(resize,80)}).observe($('#mapwrap'))}catch(e){}
-setSave('Saved on this phone');
+setSave(sync?'Syncing…':'Saved on this phone');
+if(sync){syncNow();setInterval(function(){if(sync&&document.visibilityState==='visible'&&!editing)syncNow()},45000)}
 maybeRefresh();
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});
 })();
