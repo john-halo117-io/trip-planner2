@@ -54,6 +54,8 @@ function migrate(s){
   if(!Array.isArray(s.fits))s.fits=[];
   s.fits=s.fits.filter(function(f){return f&&typeof f==='object'&&pids[f.who]}).map(function(f){var set={};if(f.set&&typeof f.set==='object')Object.keys(f.set).slice(0,60).forEach(function(k){if(/^[\w:-]{1,60}$/.test(k)&&/^(wear|pack|off)$/.test(f.set[k]))set[k]=f.set[k]});
     return {id:String(f.id||'').replace(/[^\w-]/g,'').slice(0,60),day:Math.max(1,parseInt(f.day,10)||1),who:f.who,set:set,extra:(Array.isArray(f.extra)?f.extra:[]).slice(0,12).map(function(x){return String(x).slice(0,60)}),note:String(f.note||'').slice(0,200),by:String(f.by||'').slice(0,24),u:num(f.u)||0}}).filter(function(f){return f.id});
+  s.flags=(s.flags&&typeof s.flags==='object')?{xmas26:!!s.flags.xmas26}:{};
+  if(!s.flags.xmas26){s.flags.xmas26=true;if(!s.pins.some(function(p){return /christmas market/i.test(p.name)}))s.pins.push({id:'evt-xmas26',name:"Edinburgh's Christmas Market",lat:55.9519,lng:-3.1925,cat:'city',stage:'queue',booked:false,day:0,order:0,notes:'East Princes Street Gardens. 14 Nov 2026 – 3 Jan 2027, usually 10am–10pm (closed 25 Dec; a few dates have shorter hours). Free entry; Big Wheel & rides paid. Christmas at the Botanics light trail and George St ice rink are nearby (ticketed).',hours:'Mo-Su 10:00-22:00',hoursSrc:'Edinburgh’s Christmas',mins:150,u:0})}
   var dl={};if(s.del&&typeof s.del==='object')Object.keys(s.del).forEach(function(k){var t=num(s.del[k]);if(t&&/^[\w-]{1,40}$/.test(k)&&Date.now()-t<90*864e5)dl[k]=t});s.del=dl;
   s.v=3;return s;
 }
@@ -63,7 +65,7 @@ if(!state){try{state=migrate(JSON.parse(document.getElementById('seed').textCont
 if(!state)state=migrate({v:2,updated:0,trip:{start:'',days:7},pins:[]});
 var ui={tab:'queue',day:1,cat:'all',showLib:false,min:false,t:null,q:''};
 try{var u=JSON.parse(localStorage.getItem(LSUI));if(u)for(var k in u)ui[k]=u[k]}catch(e){}
-(function(){var T={today:1,queue:1,plan:1,pack:1,spend:1,library:1,done:1};if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;ui.showLib=!!ui.showLib;
+(function(){var T={today:1,queue:1,plan:1,pack:1,near:1,spend:1,library:1,done:1};if(ui.area&&!/^[a-z]{3,4}$/.test(ui.area))ui.area='auto';if(ui.tcat&&!/^[a-z]{3,6}$/.test(ui.tcat))ui.tcat='all';if(ui.ecat&&!/^[a-z]{3,6}$/.test(ui.ecat))ui.ecat='food';if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;ui.showLib=!!ui.showLib;
   var v=ui.view;if(!(v&&v.c&&isFinite(v.c[0])&&isFinite(v.c[1])&&Math.abs(v.c[0])<=180&&Math.abs(v.c[1])<=85&&isFinite(v.z)&&v.z>=0&&v.z<=20))ui.view=null;if(ui.spCat&&!/^\w+$/.test(ui.spCat))ui.spCat='food';if(ui.who!=null&&!/^[\w-]{1,20}$/.test(String(ui.who)))ui.who=null})();
 if(ui.day>state.trip.days)ui.day=1;
 function saveUI(){try{localStorage.setItem(LSUI,JSON.stringify(ui))}catch(e){}}
@@ -433,7 +435,7 @@ function initMap(){
     map.addLayer({id:'pin-lbl',type:'symbol',source:'pins',minzoom:8,filter:['!=',['get','role'],'lib'],layout:{'text-field':['get','name'],'text-size':12,'text-font':['Noto Sans Bold'],'text-offset':[0.95,0],'text-anchor':'left','text-max-width':12},paint:{'text-color':'#1f2a2e','text-halo-color':'#ffffff','text-halo-width':1.6}});
     mapReady=true;drawPins();drawRoute();
   });
-  map.on('click','pins',function(e){if(addMode)return;var f=e.features&&e.features[0];if(f){e.originalEvent&&(e.originalEvent._pin=1);openEditor(f.properties.id)}});
+  map.on('click','pins',function(e){if(addMode)return;var f=e.features&&e.features[0];if(f){var pid=f.properties.id;if(/^tip\d+$/.test(pid)){var el=document.getElementById('tp-'+pid);if(el){el.parentNode.scrollIntoView({behavior:'smooth',block:'center'});el.parentNode.classList.add('flash');setTimeout(function(){el.parentNode.classList.remove('flash')},1200)}return}openEditor(pid)}});
   map.on('mouseenter','pins',function(){map.getCanvas().style.cursor='pointer'});
   map.on('mouseleave','pins',function(){map.getCanvas().style.cursor=''});
   map.on('click',function(e){
@@ -459,6 +461,7 @@ function mapPins(){
     else{if(p.stage==='queue')role='q';else if((ui.showLib||!qn)&&p.stage==='library')role='lib'}
     if(role)out.push({p:p,role:role});
   });
+  if(ui.tab==='near'){var ar=curArea(),cat=ui.tcat||'all';TIPO.forEach(function(t){if(t.a===ar.id&&(cat==='all'||t.c===cat))out.push({p:{id:t.id,name:t.n,lat:t.lat,lng:t.lng,cat:TCAT[t.c]},role:'tip'})})}
   return out;
 }
 function drawPins(){
@@ -466,7 +469,7 @@ function drawPins(){
   if(ui.tab==='plan'||ui.tab==='pack'||ui.tab==='today')dayPins(ui.day).forEach(function(p,i){idx[p.id]=i+1});
   var feats=mapPins().map(function(d){var p=d.p,r=d.role,c=(CATS[p.cat]||CATS.scenic)[1],sel=p.id===selId;
     return {type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{id:p.id,name:p.name,role:r,
-      color:r==='base'?'#ffffff':r==='donep'?'#8a9497':c,r:r==='planned'||r==='base'?10:r==='lib'||r==='cand'?6:8,op:r==='lib'?.55:r==='cand'?.6:1,
+      color:r==='base'?'#ffffff':r==='donep'?'#8a9497':r==='tip'?'#c0612f':c,r:r==='planned'||r==='base'?10:r==='lib'||r==='cand'||r==='tip'?6:8,op:r==='lib'?.55:r==='cand'?.6:1,
       sc:sel||r==='base'?'#1f2a2e':'#ffffff',sw:sel?3.5:r==='base'?3:2,num:r==='planned'?String(idx[p.id]):''}}});
   feats.sort(function(a,b){var ra=a.properties.role==='planned'||a.properties.role==='base'?1:0,rb=b.properties.role==='planned'||b.properties.role==='base'?1:0;return ra-rb});
   map.getSource('pins').setData(fc(feats));
@@ -710,18 +713,173 @@ function renderToday(){
   h+=wearSummary(n);
   var spentToday=state.spend.items.filter(function(e){return e.day===n}).reduce(function(s,e){return s+usd(e)},0);
   h+='<div class="card"><div class="srow"><span class="grow">Spent on Day '+n+': <b>'+usdf(spentToday)+'</b></span><button class="btn sm" data-act="gospend">Log a purchase</button></div></div>';
+  h+=tipsTodayCard(n);
   h+='<button class="btn sosb" data-act="safety">🆘 Safety card: 999, grid ref, hospitals</button>';
   return h;
 }
+
+/* Curated tips (researched Oct 2026). c: food|pub|sight|walk|books|shop|rainy|event. w: winter caution. */
+var AREAS=[
+ {id:'edi',n:'Edinburgh',lat:55.9533,lng:-3.1883,r:9},
+ {id:'gla',n:'Glasgow',lat:55.8642,lng:-4.2518,r:9},
+ {id:'sky',n:'Isle of Skye',lat:57.33,lng:-6.25,r:45},
+ {id:'fwg',n:'Fort William & Glencoe',lat:56.75,lng:-5.06,r:22},
+ {id:'inv',n:'Inverness & Loch Ness',lat:57.45,lng:-4.25,r:22},
+ {id:'avi',n:'Aviemore & Cairngorms',lat:57.18,lng:-3.80,r:20},
+ {id:'obn',n:'Oban',lat:56.415,lng:-5.471,r:14},
+ {id:'pit',n:'Pitlochry',lat:56.704,lng:-3.729,r:12}];
+var W_HL='Many Highland and island places close or cut hours in November. Check before you go and book dinner.';
+var TIPS=[
+ /* ---- Edinburgh ---- */
+ ['edi','event',"Edinburgh's Christmas Market",55.9519,-3.1925,'About 70 wooden chalets in East Princes Street Gardens under the Scott Monument: mulled wine, street food, gifts. Free entry; rides like the Big Wheel are paid.','14 Nov 2026 – 3 Jan 2027, usually 10am–10pm; closed 25 Dec, and a few dates have shorter hours.'],
+ ['edi','event','George Street ice rink & lights',55.9533,-3.1990,'Part of Edinburgh’s Christmas: outdoor skating and festive bars along George Street.','Ticketed. Book a slot for weekend evenings.'],
+ ['edi','event','Christmas at the Botanics',55.9650,-3.2090,'An evening light trail through the Royal Botanic Garden. One of the nicest things in the city in late November.','Ticketed, timed entry, and it sells out, so book early.'],
+ ['edi','food','Ondine',55.9488,-3.1925,'One of the city’s best-known seafood restaurants, with an oyster bar, on George IV Bridge in the Old Town.','Book ahead.'],
+ ['edi','food','Timberyard',55.9465,-3.1985,'Michelin-starred (with a Green Star): seasonal Scottish produce in a converted warehouse.','Tasting menu; book well ahead.'],
+ ['edi','food','The Kitchin (Leith)',55.9771,-3.1722,'Michelin-starred “nature to plate” Scottish cooking on the Leith waterfront. Set lunch is the best value.','Book ahead; tram or bus to Leith.'],
+ ['edi','food','Makars Gourmet Mash Bar',55.9512,-3.1955,'Hearty Scottish comfort food (haggis, pies, mash) by the Mound. A warm-up after the market.',''],
+ ['edi','food',"Mary's Milk Bar",55.9477,-3.1960,'Tiny Grassmarket spot for gelato and thick hot chocolate with a castle view.','Small, so expect a short queue.'],
+ ['edi','food','Oink (Victoria Street)',55.9488,-3.1937,'Hog roast rolls carved to order. Cheap, filling, classic Old Town lunch.',''],
+ ['edi','pub','The Bow Bar',55.9483,-3.1946,'Narrow wood-panelled Victoria Street pub: cask ales and 300+ malts, no music, no TVs. Widely called the best pub in the Old Town.',''],
+ ['edi','pub',"Sandy Bell's",55.9455,-3.1903,'Legendary little folk pub with near-nightly trad music sessions and a big whisky range.','Gets packed; go early evening.'],
+ ['edi','pub','Café Royal Circle Bar',55.9545,-3.1902,'Ornate Victorian bar with tiled murals and gas-lamp atmosphere, just off Princes Street.',''],
+ ['edi','pub',"Kay's Bar",55.9562,-3.2045,'Tiny New Town pub in a former wine merchant’s, with a fire and a good dram list. Perfect on a cold night.',''],
+ ['edi','pub','The Royal Oak',55.9480,-3.1838,'Folk music most nights in a cosy two-level bar near the Royal Mile.',''],
+ ['edi','books','Armchair Books',55.9468,-3.1983,'Floor-to-ceiling second-hand and antiquarian books just off the Grassmarket. Often called the city’s most magical bookshop.',''],
+ ['edi','books','Edinburgh Books',55.9465,-3.1997,'Ramshackle maze of second-hand and collectable books on West Port, a few doors from Armchair.',''],
+ ['edi','books',"Till's Bookshop",55.9405,-3.1824,'Beloved second-hand shop by the Meadows, around since 1985.',''],
+ ['edi','books',"McNaughtan's & Typewronger",55.9586,-3.1840,'Scotland’s oldest second-hand bookshop (1957), sharing a basement with a typewriter-and-books shop.',''],
+ ['edi','books','Topping & Company',55.9564,-3.1820,'Big independent bookshop with ladders, free tea and lots of signed copies.',''],
+ ['edi','books','Golden Hare Books',55.9585,-3.2070,'Small, beautiful Stockbridge bookshop. Pair with a Stockbridge wander.',''],
+ ['edi','rainy','National Museum of Scotland',55.9469,-3.1901,'Free, huge and excellent, from Dolly the sheep to the Lewis Chessmen. Don’t miss the rooftop terrace view.','Free entry.'],
+ ['edi','rainy',"The Real Mary King's Close",55.9502,-3.1903,'Guided tour of 17th-century streets buried under the Royal Mile.','Timed tickets; book ahead.'],
+ ['edi','rainy','Camera Obscura & World of Illusions',55.9490,-3.1957,'Victorian camera obscura plus five floors of optical illusions by the castle.',''],
+ ['edi','sight','Victoria Street & Grassmarket',55.9484,-3.1938,'The curved, colourful street said to have inspired Diagon Alley, down into the old market square.',''],
+ ['edi','sight','Greyfriars Kirkyard',55.9466,-3.1922,'Atmospheric old graveyard and the Greyfriars Bobby statue.',''],
+ ['edi','sight','Scott Monument',55.9524,-3.1933,'Gothic spire above the Christmas market; 287 steps up for the view.','Paid; narrow stairs.'],
+ ['edi','sight','Palace of Holyroodhouse',55.9527,-3.1722,'The King’s official residence in Scotland, with Mary Queen of Scots’ rooms. At the bottom of the Royal Mile.','Check opening; closes for royal visits.'],
+ ['edi','walk','Dean Village & Water of Leith',55.9524,-3.2196,'Storybook mill village 10 min from Princes Street; follow the river path to Stockbridge.','Easy, about 1 hr.'],
+ ['edi','shop','Stockbridge Market',55.9583,-3.2082,'Sunday street-food and makers’ market in a village-y corner of the city.','Sundays.'],
+ /* ---- Glasgow ---- */
+ ['gla','rainy','Kelvingrove Art Gallery & Museum',55.8686,-4.2906,'Free and spectacular: Dalí’s Christ of St John of the Cross, a Spitfire, and an organ recital most days.','Free.'],
+ ['gla','rainy','Riverside Museum',55.8650,-4.3060,'Free transport museum in a Zaha Hadid building, with a tall ship moored outside.','Free.'],
+ ['gla','food','Ashton Lane',55.8746,-4.2930,'Cobbled West End lane of fairy-lit bars and restaurants, including the long-running Ubiquitous Chip.',''],
+ ['gla','books','Caledonia Books',55.8780,-4.2840,'Classic West End second-hand bookshop with rare and out-of-print titles.',''],
+ ['gla','pub','The Pot Still',55.8642,-4.2580,'Snug city-centre whisky bar with hundreds of malts and a staff happy to guide you.',''],
+ /* ---- Skye ---- */
+ ['sky','food','Scorrybreac (Portree)',57.4155,-6.1924,'Michelin-recommended: Skye mussels, scallops and venison in a tiny dining room.',W_HL],
+ ['sky','food','Dulse & Brose (Portree)',57.4136,-6.1945,'Cosy hotel restaurant: Skye langoustines in garlic butter, cranachan for pudding.',W_HL],
+ ['sky','food','Sea Breezes (Portree harbour)',57.4118,-6.1923,'Mid-priced seafood on the quay: langoustines, mussels, oysters.',W_HL],
+ ['sky','food','The Three Chimneys (Colbost)',57.4418,-6.6532,'Skye’s most famous restaurant, in a stone croft on Loch Dunvegan.','Destination dining; book well ahead. '+W_HL],
+ ['sky','food','Loch Bay (Stein)',57.5155,-6.5765,'Michelin-starred seafood in a tiny fishing-village restaurant.','Book ahead. '+W_HL],
+ ['sky','food','The Oyster Shed (Carbost)',57.3010,-6.3577,'Seafood shack near Talisker: oysters, scallops and crab to eat standing at barrels.','Casual, with outdoor tables. '+W_HL],
+ ['sky','pub','The Old Inn (Carbost)',57.3005,-6.3540,'Lochside pub with a fire and a specials board, a great stop after a wet hike.',''],
+ ['sky','pub',"Seumas' Bar, Sligachan",57.2902,-6.1729,'Climbers’ bar at the foot of the Cuillin, with a big malt list. Next to the old bridge.',''],
+ ['sky','rainy','Talisker Distillery',57.3025,-6.3570,'Skye’s classic peaty whisky, with lochside tours and tastings.','Book tours ahead; winter hours are shorter.'],
+ ['sky','shop','Isle of Skye Candle Co (Portree)',57.4084,-6.1974,'Local candles and gifts, with wood-fired pizza (Gasta) inside.',''],
+ ['sky','walk','Fairy Glen (Uig)',57.5878,-6.3480,'Strange little conical hills and a rock “castle”. Short, easy and eerie in mist.','About 45 min.'],
+ ['sky','walk','Coral Beach (Claigan)',57.4890,-6.6260,'White “coral” (actually seaweed) beach walk near Dunvegan.','About 1.5 hr round trip; muddy.'],
+ ['sky','sight','Portree harbour',57.4118,-6.1918,'The row of pastel houses everyone photographs. Best from the Lump viewpoint above town.',''],
+ /* ---- Fort William & Glencoe ---- */
+ ['fwg','pub','Clachaig Inn (Glencoe)',56.6640,-5.0640,'Legendary climbers’ pub deep in Glencoe: real ales, hearty food, live music some weekends.','Busy after hill days; there’s a big Boots Bar.'],
+ ['fwg','food','Crannog (Fort William pier)',56.8170,-5.1140,'Seafood on the pier with the best location in town.','Book dinner.'],
+ ['fwg','food','The Silly Goose at the Lime Tree',56.8155,-5.1170,'Often rated the best restaurant in Fort William: seasonal local produce and an art gallery.','Book dinner.'],
+ ['fwg','pub','Ben Nevis Bar',56.8195,-5.1080,'Snug high-street bar with good pints, malts and pub food, and a loch-view terrace.',''],
+ ['fwg','pub','Black Isle Bar',56.8188,-5.1110,'Organic craft beer and wood-fired pizza.',''],
+ ['fwg','pub','Ben Nevis Inn (Achintee)',56.8072,-5.0790,'Converted barn at the start of the Ben Nevis path, built for post-hike pints.','Check winter opening days.'],
+ ['fwg','rainy','Glencoe Visitor Centre',56.6838,-5.1060,'National Trust exhibits on the 1692 massacre and the glen’s geology, with a café.','Winter hours are shorter.'],
+ ['fwg','rainy','West Highland Museum',56.8183,-5.1124,'Free and quirky Jacobite museum, including the secret portrait of Bonnie Prince Charlie.','Free; check winter days.'],
+ ['fwg','walk','Glencoe Lochan',56.6862,-5.0920,'Easy woodland loop round a lochan with mountain reflections.','About 1 hr; good bad-weather option.'],
+ ['fwg','sight','Nevis Range gondola',56.8577,-4.9880,'Gondola to 650 m on Aonach Mòr for big views without the climb.','Can close for wind or winter maintenance; check same day.'],
+ /* ---- Inverness ---- */
+ ['inv','books',"Leakey's Bookshop",57.4796,-4.2275,'Scotland’s largest second-hand bookshop, in an old Gaelic church with a wood-burning stove and spiral stairs.','Unmissable for book lovers.'],
+ ['inv','shop','Victorian Market',57.4790,-4.2260,'1870s covered arcades of independent shops, plus a food hall.','Under cover; good on a wet day.'],
+ ['inv','pub','Hootananny',57.4800,-4.2270,'Live traditional music most nights. Touristy but tons of fun.',''],
+ ['inv','food','The River House',57.4775,-4.2290,'Small riverside seafood restaurant that locals call underrated.','Pricey; book.'],
+ ['inv','food',"Girvans",57.4785,-4.2235,'An Inverness institution for breakfast.',''],
+ ['inv','walk','Ness Islands',57.4675,-4.2325,'Gentle riverside loop over Victorian footbridges, 15 min from the centre.','Flat, about 1 hr.'],
+ ['inv','sight','Clava Cairns',57.4740,-4.0730,'4,000-year-old burial cairns and standing stones near Culloden.','Free; atmospheric at dusk.'],
+ ['inv','rainy','Inverness Museum & Art Gallery',57.4765,-4.2265,'Free museum of Highland history, Pictish stones and Jacobite items.','Free.'],
+ /* ---- Aviemore & Cairngorms ---- */
+ ['avi','pub','Old Bridge Inn',57.1900,-3.8225,'Cosy riverside pub with a roaring fire, the classic post-hill warm-up.',''],
+ ['avi','food','The Winking Owl',57.1955,-3.8270,'Scottish classics and Cairngorm Brewery ales on the main street.','Book dinner at weekends.'],
+ ['avi','food','The Barn at Rothiemurchus',57.1815,-3.8170,'Café with stews, soup and cake by the Rothiemurchus estate.',''],
+ ['avi','sight','Cairngorm Reindeer Centre',57.1680,-3.6900,'Britain’s only free-ranging reindeer herd; join a guided hill visit.','Fixed daily times; check and book.'],
+ ['avi','walk','Loch Morlich beach',57.1665,-3.7090,'Sandy beach under the Cairngorms. Lovely short walk at sunrise.',''],
+ ['avi','sight','Cairngorm Mountain',57.1340,-3.6700,'Snowsports and big views; the funicular runs when conditions allow.','Check status and weather on the day.'],
+ /* ---- Oban ---- */
+ ['obn','sight',"McCaig's Tower",56.4149,-5.4682,'Free Colosseum-style folly above town with the best sunset view over the bay.','Free; short steep climb.'],
+ ['obn','rainy','Oban Distillery',56.4146,-5.4721,'Tours and tastings right in the town centre.','Book tours.'],
+ ['obn','food','Oban Seafood Hut',56.4113,-5.4752,'The famous green shack on the pier: cheap, fresh seafood.','Hours vary in winter.'],
+ ['obn','food','Ee-Usk',56.4163,-5.4728,'Seafood restaurant with big windows on the North Pier.','Book dinner.'],
+ ['obn','shop','Oban Chocolate Co',56.4185,-5.4730,'Handmade chocolates and hot chocolate on the seafront.',''],
+ /* ---- Pitlochry ---- */
+ ['pit','sight','Pitlochry Dam & Fish Ladder',56.7020,-3.7350,'Visitor centre and walkway over the dam with river views.',''],
+ ['pit','rainy','Blair Athol Distillery',56.7005,-3.7290,'Bell’s whisky distillery in town, with tours.','Book tours.'],
+ ['pit','pub','Moulin Inn',56.7155,-3.7370,'Characterful old inn above Pitlochry that brews its own ale.','']
+];
+
+var TC={food:['🍽','Food'],pub:['🍺','Pubs & whisky'],sight:['🏰','Sights'],walk:['🥾','Walks'],books:['📚','Bookshops'],shop:['🛍','Shopping'],rainy:['☔','Rainy day'],event:['🎄','Seasonal']};
+var TCAT={food:'food',pub:'food',sight:'castle',walk:'hike',books:'city',shop:'city',rainy:'castle',event:'city'};
+var TIPO=TIPS.map(function(t,i){return {id:'tip'+i,a:t[0],c:t[1],n:t[2],lat:t[3],lng:t[4],why:t[5],w:t[6]||''}});
+var here=null;/* {lat,lng,at} from GPS; stays on this phone */
+function areaOf(pt){if(!pt)return null;var best=null,bd=1e9;AREAS.forEach(function(ar){var d=km(pt,ar);if(d<=ar.r&&d<bd){bd=d;best=ar}});return best}
+function tipRef(){var st=tripStatus();if(here&&Date.now()-here.at<30*6e4)return {pt:here,label:'you'};var b=wxPlace(st.phase==='during'?st.day:ui.day);if(b)return {pt:b,label:b.name};return null}
+function curArea(){if(ui.area&&ui.area!=='auto'){for(var i=0;i<AREAS.length;i++)if(AREAS[i].id===ui.area)return AREAS[i]}var r=tipRef(),ar=r&&areaOf(r.pt);return ar||AREAS[0]}
+function tipQueued(t){return state.pins.some(function(p){return p.stage!=='library'&&hasLoc(p)&&km(p,t)<0.25&&(p.name.toLowerCase()===t.n.toLowerCase()||similar(p.name,t.n))})}
+function tipCard(t,ref){var d=ref?km(ref.pt,t):null,q=tipQueued(t);
+  return '<div class="tipc"><div class="tiph"><span class="tico">'+TC[t.c][0]+'</span><div class="grow"><div class="tipn">'+esc(t.n)+'</div><div class="meta">'+TC[t.c][1]+(d!=null?' · '+(d<1?Math.round(d*1000/1609*1760/10)*10+' yd':(d*0.621).toFixed(d<10?1:0)+' mi')+' from '+esc(ref.label==='you'?'you':ref.label):'')+'</div></div></div>'+
+   '<div class="small">'+esc(t.why)+'</div>'+(t.w?'<div class="small warnbox">⚠ '+esc(t.w)+'</div>':'')+
+   '<div class="acts"><button class="btn sm'+(q?'':' primary')+'" data-act="tipq" data-id="'+t.id+'"'+(q?' disabled':'')+'>'+(q?'✓ In your trip':'+ Queue')+'</button><button class="btn sm" data-act="tipph" data-id="'+t.id+'">Photos</button><button class="btn sm" data-act="tipmap" data-id="'+t.id+'">Map</button><a class="btn sm" href="'+gmaps(t)+'" target="_blank" rel="noopener">Google ↗</a></div><div class="photos" id="tp-'+t.id+'"></div></div>'}
+function renderNearby(){
+  var ar=curArea(),ref=tipRef(),cat=ui.tcat||'all',h='';
+  h+='<div class="chips"><button class="chip'+(!ui.area||ui.area==='auto'?' on':'')+'" data-act="tarea" data-a="auto">📍 Auto</button>'+AREAS.map(function(x){return '<button class="chip'+(ui.area===x.id?' on':'')+'" data-act="tarea" data-a="'+x.id+'">'+esc(x.n)+'</button>'}).join('')+'</div>';
+  var list=TIPO.filter(function(t){return t.a===ar.id});
+  var cats={};list.forEach(function(t){cats[t.c]=(cats[t.c]||0)+1});
+  h+='<div class="chips"><button class="chip'+(cat==='all'?' on':'')+'" data-act="tcat" data-c="all">All '+list.length+'</button>'+Object.keys(TC).filter(function(k){return cats[k]}).map(function(k){return '<button class="chip'+(cat===k?' on':'')+'" data-act="tcat" data-c="'+k+'">'+TC[k][0]+' '+TC[k][1]+' '+cats[k]+'</button>'}).join('')+'</div>';
+  h+='<div class="sect"><span>'+esc(ar.n)+'</span><button class="lnk" data-act="tgps">'+(here?'📍 Update my location':'📍 Use my location')+'</button></div>';
+  if(!ui.area||ui.area==='auto')h+='<div class="small o" style="padding:0 6px 6px">'+(ref?'Showing tips near '+esc(ref.label==='you'?'your location':ref.label)+'.':'Set a base for the day (Plan) or tap “Use my location” to auto-pick the area.')+'</div>';
+  var shown=list.filter(function(t){return cat==='all'||t.c===cat});
+  if(ref)shown.sort(function(x,y){return (x.c==='event'?-1:0)-(y.c==='event'?-1:0)||km(ref.pt,x)-km(ref.pt,y)});
+  shown.forEach(function(t){h+=tipCard(t,ref)});
+  if(!shown.length)h+='<div class="empty">No curated tips here for that category yet. Try Explore below.</div>';
+  var ec=ui.ecat||'food';
+  h+='<div class="card"><div class="ct">Explore more nearby</div><div class="small o">Live OpenStreetMap search around '+esc(ref?(ref.label==='you'?'you':ref.label):ar.n)+'. Well-known places (with a Wikipedia entry) come first. Only a rough location, about 1 km off, is sent, and only when you tap.</div>'+
+   '<div class="srow" style="margin-top:6px"><select id="exCat" class="grow">'+[['food','🍽 Restaurants & cafés'],['pub','🍺 Pubs & bars'],['books','📚 Bookshops'],['shop','🛍 Gift, craft & outdoor shops'],['sight','🏰 Sights & museums'],['walk','🥾 Viewpoints & nature']].map(function(o){return '<option value="'+o[0]+'"'+(ec===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select><button class="btn sm primary" data-act="explore">Search</button></div><div id="exRes"></div></div>';
+  h+='<div class="small o" style="padding:6px">Tips are researched picks, not live ratings: hours change, so check before you go. Your location is only used on this phone.</div>';
+  return h;
+}
+var EXQ={food:'nwr["amenity"~"^(restaurant|cafe)$"]',pub:'nwr["amenity"~"^(pub|bar)$"]',books:'nwr["shop"="books"]',shop:'nwr["shop"~"^(gift|crafts|antiques|art|outdoor|chocolate|deli)$"]',sight:'nwr["tourism"~"^(attraction|museum|gallery)$"];nwr["historic"~"^(castle|monument|ruins|memorial)$"]',walk:'nwr["tourism"="viewpoint"];nwr["natural"="peak"]["name"];nwr["leisure"="nature_reserve"]["name"]'};
+function explore(cat){
+  var el=$('#exRes'),ref=tipRef(),ar=curArea(),pt=ref?ref.pt:ar;if(!el)return;
+  var lat=Math.round(pt.lat*100)/100,lng=Math.round(pt.lng*100)/100,rad=cat==='walk'?6000:1800;  /* ~1 km rounding for privacy */
+  el.innerHTML='<div class="small o">Searching…</div>';
+  var q='[out:json][timeout:20];('+EXQ[cat].split(';').map(function(s){return s+'["name"](around:'+rad+','+lat+','+lng+');'}).join('')+');out tags center 60;';
+  fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q)).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){
+    var seen={},items=(j.elements||[]).map(function(e){var c=e.center||e,t=e.tags||{};return {n:String(t['name:en']||t.name||'').slice(0,80),lat:c.lat,lng:c.lon,kind:String(t.cuisine||t.amenity||t.shop||t.tourism||t.historic||t.natural||t.leisure||'').replace(/[_;]/g,' ').slice(0,40),fame:(t.wikidata||t.wikipedia)?1:0,oh:t.opening_hours?String(t.opening_hours).slice(0,200):'',web:/^https:\/\//.test(t.website||'')?String(t.website).slice(0,200):''}})
+      .filter(function(x){if(!x.n||x.lat==null||seen[x.n])return false;seen[x.n]=1;return true});
+    items.forEach(function(x){x.d=km(pt,x)});items.sort(function(x,y){return y.fame-x.fame||x.d-y.d});items=items.slice(0,20);
+    if(!items.length){el.innerHTML='<div class="small o">Nothing found nearby.</div>';return}
+    var iso=isoDate(tripStatus().day)||localIso(0);
+    el.innerHTML=items.map(function(x,i){var oh=x.oh?ohText(ohOn(x.oh,iso)):'';return '<div class="srow exr"><div class="grow"><b>'+esc(x.n)+'</b>'+(x.fame?' <span class="fame">★ notable</span>':'')+'<div class="meta">'+esc(x.kind)+' · '+(x.d*0.621).toFixed(1)+' mi'+(oh?' · '+esc(oh):'')+'</div></div><button class="btn sm" data-ex="'+i+'">+ Queue</button></div>'}).join('');
+    $$('[data-ex]',el).forEach(function(b){b.onclick=function(){var x=items[+b.getAttribute('data-ex')],before=snap();state.pins.push({id:uid(),name:x.n,lat:+x.lat.toFixed(5),lng:+x.lng.toFixed(5),cat:TCAT[cat]||'scenic',stage:'queue',booked:false,day:0,order:nextOrder(),notes:x.kind,hours:x.oh||null,hoursSrc:x.oh?'OpenStreetMap':null});commit();renderTabs();b.textContent='✓ Added';b.disabled=true;toast(x.n+' added to queue',before)}});
+  }).catch(function(){el.innerHTML='<div class="small o">Couldn’t reach OpenStreetMap. Try again with signal.</div>'});
+}
+function locateMe(btn){if(!navigator.geolocation){toast('Location isn’t available here');return}if(btn){btn.textContent='Locating…';btn.disabled=true}
+  navigator.geolocation.getCurrentPosition(function(p){here={lat:p.coords.latitude,lng:p.coords.longitude,at:Date.now()};ui.area='auto';saveUI();render()},function(){if(btn){btn.disabled=false;btn.textContent='📍 Use my location'}toast('Couldn’t get your location (check Location permission)')},{enableHighAccuracy:false,timeout:15000,maximumAge:120000})}
+function tipsTodayCard(n){var ref=tipRef(),ar=ref&&areaOf(ref.pt);if(!ar)return '';var list=TIPO.filter(function(t){return t.a===ar.id});if(!list.length)return '';
+  var ev=list.filter(function(t){return t.c==='event'});var cats={};list.forEach(function(t){cats[t.c]=(cats[t.c]||0)+1});
+  return '<div class="card"><div class="ct">💡 Tips around '+esc(ar.n)+'</div>'+(ev.length?'<div class="small">'+ev.map(function(t){return TC.event[0]+' <b>'+esc(t.n)+'</b>'}).join('<br>')+'</div>':'')+'<div class="small o" style="margin-top:4px">'+Object.keys(cats).map(function(k){return TC[k][0]+' '+cats[k]}).join(' · ')+'</div><button class="lnk" data-act="gonear">See tips →</button></div>'}
 
 /* ---------- panel ---------- */
 function renderTabs(){
   var q=inStage('queue').length,lib=inStage('library').length,dn=inStage('done').length,pl=state.pins.filter(function(p){return p.stage==='queue'&&p.day}).length;
   var pkm=gearOf(curPerson().id),pk=pkm.filter(function(i){return i.packed}).length+'/'+pkm.length;
   var spent=state.spend.items.reduce(function(s,e){return s+usd(e)},0);
-  var tabs=[['today','Today',''],['queue','Queue',q],['plan','Plan',pl],['pack','Pack',pk],['spend','Spend',usdf(spent)],['library','Library',lib],['done','Done',dn]];
+  var tabs=[['today','Today',''],['queue','Queue',q],['plan','Plan',pl],['pack','Pack',pk],['near','Tips',''],['spend','Spend',usdf(spent)],['library','Library',lib],['done','Done',dn]];
   $('#tabs').innerHTML=tabs.map(function(t){return '<button class="tab'+(ui.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+(t[2]!==''?' <span class="n">'+t[2]+'</span>':'')+'</button>'}).join('')+'<button class="tab tog" id="tog">'+(ui.min?'▲':'▼')+'</button>';
   $$('[data-tab]').forEach(function(b){b.onclick=function(){var nt=b.getAttribute('data-tab');if(ui.min){ui.min=false;$('#panel').classList.remove('min');setTimeout(resize,60)}ui.tab=nt;saveUI();render();$('#pbody').scrollTop=0;
+    if(nt==='near'){var ar0=curArea();if(map)map.flyTo({center:[ar0.lng,ar0.lat],zoom:ar0.r>30?8:ar0.r>15?10:12.5,duration:700})}
     if(nt==='plan'||nt==='pack'||nt==='today'){if(nt==='today')ui.day=tripStatus().day;fitDay(ui.day)}else if(nt==='queue')fitTo(inStage('queue'));else if(nt==='done')fitTo(inStage('done'))}});
   try{var at=$('#tabs .tab.on');if(at)at.scrollIntoView({block:'nearest',inline:'nearest'})}catch(e){}
   $('#tog').onclick=function(){ui.min=!ui.min;$('#panel').classList.toggle('min',ui.min);saveUI();renderTabs();setTimeout(resize,60)};
@@ -756,6 +914,7 @@ function outfitCard(n,compact){
 function renderPanel(){
   var b=$('#pbody'),h='';
   if(ui.tab==='today'){h+=renderToday()}
+  else if(ui.tab==='near'){h+=renderNearby()}
   else if(ui.tab==='queue'){
     var up=unplanned().filter(catOk),planned=state.pins.filter(function(p){return p.stage==='queue'&&p.day&&catOk(p)});
     h+='<div class="addbar"><input id="sQ" class="mini grow" type="search" autocomplete="off" placeholder="🔎 Search places (e.g. Sligachan, Old Man of Storr)"></div><div id="sRes"></div>';
@@ -902,6 +1061,14 @@ function act(a,el){
     case 'unpackall':gearOf(curPerson().id).forEach(function(x){x.packed=false});commit();render();toast('All unticked',before);return;
     case 'export':exportCSV();return;
     case 'ics':exportICS();return;
+    case 'gonear':ui.tab='near';saveUI();render();$('#pbody').scrollTop=0;return;
+    case 'tarea':ui.area=el.getAttribute('data-a');ui.tcat='all';saveUI();render();var a1=curArea();if(map)map.flyTo({center:[a1.lng,a1.lat],zoom:a1.r>30?8:a1.r>15?10:12.5,duration:700});return;
+    case 'tcat':ui.tcat=el.getAttribute('data-c');saveUI();renderPanel();drawPins();return;
+    case 'tgps':locateMe(el);return;
+    case 'explore':ui.ecat=$('#exCat').value;saveUI();explore(ui.ecat);return;
+    case 'tipmap':var tm=TIPO.filter(function(x){return x.id===id})[0];if(tm&&map)map.flyTo({center:[tm.lng,tm.lat],zoom:15,duration:700});return;
+    case 'tipph':var tp=TIPO.filter(function(x){return x.id===id})[0];if(tp)fillPhotos($('#tp-'+id),tp.n,tp.lat,tp.lng,tp.c==='walk'?1200:400);return;
+    case 'tipq':var tq=TIPO.filter(function(x){return x.id===id})[0];if(!tq)return;state.pins.push({id:uid(),name:tq.n,lat:tq.lat,lng:tq.lng,cat:TCAT[tq.c]||'scenic',stage:'queue',booked:false,day:0,order:nextOrder(),notes:tq.why+(tq.w?' ⚠ '+tq.w:'')});commit();render();toast(tq.n+' added to queue',before);return;
     case 'who':ui.who=el.getAttribute('data-p');saveUI();renderPanel();return;
     case 'people':openPeople();return;
     case 'fitcycle':var P=curPerson(),f=fitEnsure(n,P.id),cur=el.getAttribute('data-st'),nx=cur==='wear'?'pack':cur==='pack'?'off':'wear';f.set[id]=nx;f.by=me().name;commit();renderPanel();return;

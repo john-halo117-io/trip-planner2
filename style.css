@@ -248,3 +248,12 @@ button,.chip,.tab,.seg,.ib{touch-action:manipulation}
   .two{grid-template-columns:1fr}
 }
 @media (max-height:700px) and (max-width:500px){#panel{max-height:56dvh}}
+
+/* tips */
+.tipc{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;margin:6px 2px 8px;transition:box-shadow .3s}
+.tipc.flash{box-shadow:0 0 0 3px #c0612f}
+.tiph{display:flex;gap:10px;align-items:center;margin-bottom:4px}.tico{font-size:22px;line-height:1}
+.tipn{font:600 15px Fraunces,Georgia,serif}
+.warnbox{background:#fff6e8;border-radius:8px;padding:5px 8px;margin-top:6px;color:#7a4b10}
+.tipc .acts a.btn{text-decoration:none}
+.exr{border-bottom:1px solid #eef0f0;padding:7px 0}.fame{font-size:10.5px;background:#fde9c8;border-radius:8px;padding:1px 6px;color:#7a4b10}
