@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var APP_VERSION='2026.10.29-tips';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.10.30-links';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -247,7 +247,24 @@ function parseCoords(s){
   s=String(s||'');var m=s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||s.match(/[?&](?:q|query|ll|destination)=(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)/i)||s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||s.match(/(-?\d{1,2}\.\d{2,})\s*[, ]\s*(-?\d{1,3}\.\d{2,})/);
   if(!m)return null;var la=+m[1],lo=+m[2];if(Math.abs(la)>90||Math.abs(lo)>180)return null;return{lat:la,lng:lo};
 }
-function nameFromLink(s){var m=String(s).match(/\/place\/([^\/@?]+)/);if(m){try{return decodeURIComponent(m[1].replace(/\+/g,' '))}catch(e){}}return ''}
+function nameFromLink(s){s=String(s);var m=s.match(/\/place\/([^\/@?]+)/)||s.match(/[?&](?:q|query|name)=([^&#]+)/i);if(m){try{var v=decodeURIComponent(m[1].replace(/\+/g,' ')).trim();if(!/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(v))return v.slice(0,80)}catch(e){}}return ''}
+/* Google/Apple share links from phones are short redirects with no location inside.
+   We never open them (that would contact Google/Apple); instead we use the text shared with them. */
+function isShortLink(u){return /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs|maps\.apple(\.com)?\/p\/|share\.google)/i.test(u)}
+function splitShared(text){
+  /* pair each URL with the words shared next to it; plain lines with no URL stay as their own items */
+  text=String(text||'').replace(/\r/g,'');var urlRe=/https?:\/\/[^\s<>"]+/g,items=[],last=0,m;
+  if(!urlRe.test(text))return text.split(/\n+/).map(function(l){return {text:l.trim(),url:''}}).filter(function(x){return x.text});
+  urlRe.lastIndex=0;
+  while((m=urlRe.exec(text))){var before=text.slice(last,m.index).trim();last=m.index+m[0].length;
+    /* text before the URL belongs to it (Google: "Name, address\nlink"); only keep its last block */
+    var blocks=before.split(/\n\s*\n/);items.push({text:(blocks[blocks.length-1]||'').replace(/\s+/g,' ').trim(),url:m[0]})}
+  var tail=text.slice(last).trim();if(tail){if(items.length&&!items[items.length-1].text)items[items.length-1].text=tail.replace(/\s+/g,' ');else tail.split(/\n+/).forEach(function(l){l=l.trim();if(l)items.push({text:l,url:''})})}
+  return items;
+}
+function cleanShareText(t){return String(t||'').replace(/^(check out|here'?s|see)\b[^:]*:?/i,'').replace(/\s*[·•|]\s*/g,', ').replace(/★?\s*\d\.\d\s*\(\d[\d,]*\)/g,'').replace(/\s{2,}/g,' ').replace(/^[,\s]+|[,\s]+$/g,'').slice(0,160)}
+function geocodeText(q){var c=map?map.getCenter():{lat:57,lng:-4.6};
+  return fetch('https://photon.komoot.io/api/?q='+encodeURIComponent(q)+'&lat='+c.lat.toFixed(2)+'&lon='+c.lng.toFixed(2)+'&limit=1&lang=en').then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){var f=j.features&&j.features[0];if(!f)return null;var pr=f.properties||{};return {lat:f.geometry.coordinates[1],lng:f.geometry.coordinates[0],name:pr.name||'',cat:guessCat(pr),where:[pr.city||pr.town||pr.village,pr.county].filter(Boolean).join(', ')}}).catch(function(){return null})}
 function findExisting(q){q=q.toLowerCase().trim();if(q.length<4)return null;var hits=state.pins.filter(function(p){return p.name.toLowerCase().indexOf(q)>=0});return hits.length?hits[0]:null}
 
 /* ---------- sun & day budget ---------- */
@@ -385,21 +402,28 @@ function openPeople(){
 
 /* Quick add: one place per line. */
 function quickAdd(text,day){
-  var lines=String(text).split(/\n+/).map(function(l){return l.trim()}).filter(Boolean),before=snap(),added=0,moved=0,already=0,noLoc=0,last=null;
-  lines.forEach(function(line){
-    var c=parseCoords(line),nm=nameFromLink(line);
-    if(!c&&!/^https?:/i.test(line)){var ex=findExisting(line);
+  var items=splitShared(text),before=snap(),added=0,moved=0,already=0,noLoc=0,found=0,shortOnly=0,last=null,pend=[];
+  items.forEach(function(it){
+    var line=it.url?(it.text+' '+it.url).trim():it.text,c=parseCoords(it.url||'')||parseCoords(it.text),nm=nameFromLink(it.url||'');
+    if(!it.url&&!c){var ex=findExisting(it.text);
       if(ex){if(ex.stage==='queue'&&(!day||ex.day===day)){already++;return}ex.stage='queue';ex.order=nextOrder();if(day)ex.day=day;ex.seed=false;moved++;last=ex;return}}
-    if(!nm)nm=c?line.replace(/https?:\/\/\S+/g,'').replace(/-?\d{1,3}\.\d+\s*[, ]\s*-?\d{1,3}\.\d+/,'').replace(/[,;:\-–]+\s*$/,'').trim():line;
-    if(/^https?:/i.test(nm)||!nm)nm=c?'Pin at '+c.lat.toFixed(3)+', '+c.lng.toFixed(3):'Unnamed place';
-    var p={id:uid(),name:nm.slice(0,80),lat:c?c.lat:null,lng:c?c.lng:null,cat:'scenic',stage:'queue',booked:false,day:day||0,order:nextOrder(),notes:''};
-    if(!c)noLoc++;state.pins.push(p);added++;last=p;
+    var words=cleanShareText(it.text.replace(/-?\d{1,3}\.\d+\s*[, ]\s*-?\d{1,3}\.\d+/,''));
+    if(!nm)nm=(words.split(',')[0]||'').trim();
+    if(!nm)nm=c?'Pin at '+c.lat.toFixed(3)+', '+c.lng.toFixed(3):'';
+    if(!c&&it.url&&!words){shortOnly++;return}
+    var p={id:uid(),name:(nm||'Unnamed place').slice(0,80),lat:c?c.lat:null,lng:c?c.lng:null,cat:'scenic',stage:'queue',booked:false,day:day||0,order:nextOrder(),notes:''};
+    state.pins.push(p);added++;last=p;
+    if(!c){if(words||it.text){pend.push({p:p,q:words||it.text})}else noLoc++}
   });
-  if(!added&&!moved){toast(already?'Already in your queue':'Nothing to add');return}
+  if(!added&&!moved){toast(shortOnly?'That link has no location inside. In Google Maps tap Share → Copy, and paste the whole message (name + link), or use the search box above.':already?'Already in your queue':'Nothing to add');return}
   commit();render();
-  var msg=[];if(added)msg.push(added+' added');if(moved)msg.push(moved+' pulled from Library');if(already)msg.push(already+' already queued');
-  toast(msg.join(' · ')+(noLoc?' — '+noLoc+' need a location':''),before);
-  if(last&&hasLoc(last)&&lines.length===1)flyTo(last,4);
+  function done(){var msg=[];if(added)msg.push(added+' added');if(found)msg.push(found+' located by name');if(moved)msg.push(moved+' pulled from Library');if(already)msg.push(already+' already queued');
+    var miss=noLoc+(pend.length-found);toast(msg.join(' · ')+(miss?' — '+miss+' need a location (open it to place on map)':'')+(shortOnly?' · '+shortOnly+' bare link skipped':''),before);
+    if(last&&hasLoc(last)&&items.length===1)flyTo(last,4)}
+  if(!pend.length){done();return}
+  toast('Finding '+pend.length+' place'+(pend.length>1?'s':'')+'…');
+  (function next(i){if(i>=pend.length){commit();render();done();return}var x=pend[i];
+    geocodeText(x.q).then(function(g){if(g&&byId(x.p.id)){x.p.lat=+g.lat.toFixed(5);x.p.lng=+g.lng.toFixed(5);if(g.cat)x.p.cat=g.cat;if(/^(Unnamed place|Pin at)/.test(x.p.name)&&g.name)x.p.name=g.name.slice(0,80);x.p.notes=(x.p.notes?x.p.notes+' ':'')+'Located by name: check the pin.';found++}setTimeout(function(){next(i+1)},250)})})(0);
 }
 
 /* ---------- layout ---------- */
@@ -918,7 +942,7 @@ function renderPanel(){
   else if(ui.tab==='queue'){
     var up=unplanned().filter(catOk),planned=state.pins.filter(function(p){return p.stage==='queue'&&p.day&&catOk(p)});
     h+='<div class="addbar"><input id="sQ" class="mini grow" type="search" autocomplete="off" placeholder="🔎 Search places (e.g. Sligachan, Old Man of Storr)"></div><div id="sRes"></div>';
-    h+='<div class="addbar"><textarea id="qAdd" rows="1" placeholder="Or paste Google Maps links / coordinates, one per line"></textarea><button class="btn primary" id="qGo">Add</button></div>';
+    h+='<div class="addbar"><button class="btn sm" id="qPaste" title="Paste from clipboard">📋</button><textarea id="qAdd" rows="1" placeholder="Paste from Google/Apple Maps (Share → Copy), a link, or coordinates"></textarea><button class="btn primary" id="qGo">Add</button></div>';
     h+='<div class="bar"><span class="small">'+up.length+' waiting · '+planned.length+' on days</span><span class="grow"></span>'+catSelect()+'<label class="small chk"><input type="checkbox" data-act="showlib"'+(ui.showLib?' checked':'')+'> Library on map</label></div>';
     if(!up.length&&!planned.length)h+='<div class="empty">Your queue is empty. Type a place above, tap “+ Pin” on the map, or pull ideas from the <a href="#" data-act="golib">Library</a>.</div>';
     if(up.length){h+='<div class="sect"><span>Waiting to be planned</span><button class="lnk" data-act="clearq">Clear queue</button></div>';
@@ -1012,7 +1036,8 @@ function renderPanel(){
   var sq=$('#sQ');if(sq){sq.oninput=function(){var v=this.value.trim();clearTimeout(sTimer);if(v.length<3){sResults=[];$('#sRes').innerHTML='';return}sTimer=setTimeout(function(){searchPlaces(v)},350)}}
   var qa=$('#qAdd');if(qa){qa.oninput=function(){this.style.height='auto';this.style.height=Math.min(140,this.scrollHeight)+'px'};
     qa.onkeydown=function(e){if(e.key==='Enter'&&!e.shiftKey&&this.value.indexOf('\n')<0){e.preventDefault();$('#qGo').click()}};
-    $('#qGo').onclick=function(){var v=qa.value;if(!v.trim())return;qa.value='';quickAdd(v,0)}}
+    $('#qGo').onclick=function(){var v=qa.value;if(!v.trim())return;qa.value='';quickAdd(v,0)};
+    $('#qPaste').onclick=function(){if(!navigator.clipboard||!navigator.clipboard.readText){qa.focus();toast('Long-press the box and tap Paste');return}navigator.clipboard.readText().then(function(t){if(t&&t.trim()){quickAdd(t.slice(0,4000),0)}else toast('Clipboard is empty')},function(){qa.focus();toast('Long-press the box and tap Paste')})}}
   var lq=$('#libQ');if(lq){lq.oninput=function(){ui.q=this.value;var pos=this.selectionStart;renderPanel();var n=$('#libQ');n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}
   var sg=$('#spGo');if(sg){
     var add=function(){var v=parseFloat($('#spAmt').value);if(!(v>0)){$('#spAmt').focus();return}var before=snap();ui.spCat=$('#spCat').value;saveUI();
@@ -1134,7 +1159,7 @@ function openEditor(id,isNew){
   (hasLoc(p)?'<div class="f"><label>Photos &amp; info</label><div id="ePhotos" class="photos"></div></div>':'')+
   '<div class="f"><label>Notes</label><textarea id="eNotes" placeholder="Parking, tickets, weather backup…">'+esc(p.notes)+'</textarea></div>'+
   (hasLoc(p)?'<div class="small" style="margin-bottom:8px">'+p.lat.toFixed(4)+', '+p.lng.toFixed(4)+' · <a href="'+gmaps(p)+'" target="_blank" rel="noopener">Open in Google Maps</a></div>':
-   '<div class="f"><label>No location yet — paste a Google Maps link or coordinates</label><input id="eLoc" placeholder="https://www.google.com/maps/place/…/@57.29,-6.17…"><div class="small"><a href="'+gmaps(p)+'" target="_blank" rel="noopener">Look it up in Google Maps</a>, then copy the long link from the address bar.</div></div>')+
+   '<div class="f"><label>No location yet</label><input id="eLoc" placeholder="Paste a shared link + name, coordinates, or type the place"><div class="small" id="eLocMsg" style="min-height:16px"></div><div class="small"><a href="'+gmaps(p)+'" target="_blank" rel="noopener">Look it up in Google Maps</a>, then copy the long link from the address bar.</div></div>')+
   '<div class="acts"><button class="btn" id="eMove">'+(hasLoc(p)?'Move pin':'Place on map')+'</button><button class="btn danger" id="eDel">Delete</button><span class="grow"></span><button class="btn primary" id="eDone">Done</button></div>';
   $('#ov').classList.remove('hidden');
   if(isNew)setTimeout(function(){var n=$('#eName');n.focus();n.select()},50);
@@ -1149,7 +1174,10 @@ function openEditor(id,isNew){
   $('#eHours').onchange=function(){var v=this.value.trim().slice(0,200);p.hours=v||null;p.hoursSrc=v?'you':null;$('#eHrsMsg').textContent=v&&!ohParse(v)?'Can’t read this format automatically; shown as written.':'';commit();renderPanel()};
   var hg=$('#eHrsGo');if(hg)hg.onclick=function(){hg.disabled=true;hg.textContent='…';fetchHours(p).then(function(ok){hg.disabled=false;hg.textContent='Look up';if(ok){$('#eHours').value=p.hours;$('#eHrsMsg').textContent='Found on OpenStreetMap. Winter hours can differ, so confirm on the official site.';commit();renderPanel()}else $('#eHrsMsg').textContent=ok===null?'Couldn’t reach the lookup service.':'No hours listed on OpenStreetMap. Type them in if you know them.'})};['eCat','eDay','eBk','eHigh','eSwap'].forEach(function(x){$('#'+x).onchange=upd});
   $$('#eStage .seg').forEach(function(s){s.onclick=function(){p.stage=s.getAttribute('data-stage');if(p.stage!=='queue'){p.day=0;$('#eDay').value='0'}else p.order=nextOrder();$$('#eStage .seg').forEach(function(x){x.classList.toggle('on',x===s)});upd()}});
-  var el=$('#eLoc');if(el)el.oninput=function(){var c=parseCoords(this.value);if(!c)return;p.lat=c.lat;p.lng=c.lng;var nm=nameFromLink(this.value);if(nm&&(p.name==='Unnamed place'))p.name=nm;commit();openEditor(p.id);flyTo(p,5)};
+  var el=$('#eLoc');if(el){var locT=null;el.oninput=function(){var v=this.value;clearTimeout(locT);var it=splitShared(v)[0]||{text:v,url:''},c=parseCoords(it.url||'')||parseCoords(it.text);
+    if(c){p.lat=c.lat;p.lng=c.lng;var nm=nameFromLink(it.url||'')||cleanShareText(it.text).split(',')[0];if(nm&&/^(Unnamed place|New pin|Pin at)/.test(p.name))p.name=nm.slice(0,80);commit();openEditor(p.id);flyTo(p,5);return}
+    var q=cleanShareText(it.text)||(!it.url?v.trim():'');if(!q){if(it.url&&isShortLink(it.url))$('#eLocMsg').textContent='Short share links have no location. Paste the whole shared message (with the name), or type the place name.';return}
+    $('#eLocMsg').textContent='Looking up “'+q.slice(0,40)+'”…';locT=setTimeout(function(){geocodeText(q).then(function(g){if(!g){$('#eLocMsg').textContent='Couldn’t find that. Try adding the town name.';return}p.lat=+g.lat.toFixed(5);p.lng=+g.lng.toFixed(5);commit();openEditor(p.id);flyTo(p,5);toast('Placed: check it’s the right spot')})},700)}}
   $('#eDone').onclick=closeSheet;
   $('#eMove').onclick=function(){$('#ov').classList.add('hidden');editing=false;setAdd({move:id})};
   $('#eDel').onclick=function(){var before=snap();state.pins=state.pins.filter(function(q){return q.id!==id});commit();closeSheet();toast('Deleted '+p.name,before)};
