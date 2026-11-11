@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var APP_VERSION='2026.11.11-dark';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.11.11-check';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0],shop:['Books & antiques','#8a5a2b',75]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -43,7 +43,7 @@ function migrate(s){
     if(!CATS[p.cat])p.cat='scenic';if(!STAGES[p.stage])p.stage='library';p.day=Math.max(0,Math.min(60,parseInt(p.day,10)||0));p.order=num(p.order)||0;
     p.lat=num(p.lat);p.lng=num(p.lng);if(p.lat!=null&&(Math.abs(p.lat)>90))p.lat=null;if(p.lng!=null&&Math.abs(p.lng)>180)p.lng=null;
     p.cost=p.cost==null||p.cost===''?null:num(p.cost);p.mins=p.mins==null||p.mins===''?null:num(p.mins);
-    ['slot','conf','swapId','hoursSrc'].forEach(function(k){if(p[k]!=null)p[k]=String(p[k]).slice(0,80)});if(p.hours!=null)p.hours=String(p.hours).slice(0,200);p.hoursChecked=num(p.hoursChecked);p.u=num(p.u)||0});
+    ['slot','conf','swapId','hoursSrc'].forEach(function(k){if(p[k]!=null)p[k]=String(p[k]).slice(0,80)});if(p.hours!=null)p.hours=String(p.hours).slice(0,200);p.hoursChecked=num(p.hoursChecked);p.chk=num(p.chk)||0;p.u=num(p.u)||0});
   s.trip.days=Math.max(1,Math.min(30,parseInt(s.trip.days,10)||7));s.trip.start=/^\d{4}-\d{2}-\d{2}$/.test(s.trip.start||'')?s.trip.start:'';
   Object.keys(s.trip.dayCfg).forEach(function(k){var c=s.trip.dayCfg[k]||{};if(c.leave&&!/^\d{1,2}:\d{2}$/.test(c.leave))c.leave='08:30';['start','end'].forEach(function(x){if(c[x])c[x]=String(c[x]).replace(/[^\w-]/g,'')})});
   if(s.spend&&s.spend.items)s.spend.items=s.spend.items.filter(function(e){return e&&typeof e==='object'}).map(function(e){return {id:String(e.id||uid()).replace(/[^\w-]/g,''),amt:num(e.amt)||0,cur:e.cur==='USD'?'USD':'GBP',cat:String(e.cat||'other').replace(/[^\w]/g,''),day:Math.max(0,parseInt(e.day,10)||0),note:String(e.note||'').slice(0,120),ts:num(e.ts)||0,src:e.src?String(e.src).replace(/[^\w-]/g,''):undefined,u:num(e.u)||0}});
@@ -252,6 +252,7 @@ function catOk(p){return ui.cat==='all'||p.cat===ui.cat}
 function inStage(s){return state.pins.filter(function(p){return p.stage===s})}
 function dayPins(n){return state.pins.filter(function(p){return p.stage==='queue'&&p.day===n}).sort(function(a,b){return (a.order||0)-(b.order||0)})}
 function unplanned(){return state.pins.filter(function(p){return p.stage==='queue'&&!p.day}).sort(function(a,b){return (a.order||0)-(b.order||0)})}
+function hmClock(ts){try{return new Date(ts).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}catch(e){return ''}}
 function nextOrder(){return state.pins.reduce(function(m,p){return Math.max(m,p.order||0)},0)+1}
 function mins(p){return p.mins!=null&&p.mins!==''?+p.mins:(CATS[p.cat]||CATS.scenic)[2]}
 function hm(m){m=Math.round(m);var h=Math.floor(((m%1440)+1440)%1440/60),mm=((m%60)+60)%60;return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm}
@@ -745,14 +746,14 @@ function renderToday(){
   h+='<div class="sect"><span>'+esc(dayLabel(n))+(live?' · today':'')+'</span><button class="lnk" data-act="goplan">Edit plan →</button></div>'+wxLine(n);
   var toSet=dp.sun.set-nowMin;
   h+='<div class="sunrow small" style="padding:0 6px 6px"><span>☀ Sunset '+hm(dp.sun.set)+(live&&toSet>0&&toSet<720?' · <b>'+dur(toSet)+' of light left</b>':'')+'</span><span>'+(dp.rows.length?'Back ~'+hm(dp.finish):'')+'</span></div>';
-  var next=null;if(dp.rows.length){next=live?dp.rows.filter(function(r){return r.leave>nowMin&&r.p.stage==='queue'})[0]:dp.rows[0]}
+  var next=null;if(dp.rows.length){next=dp.rows.filter(function(r){return !r.p.chk&&(!live||r.leave>nowMin)})[0]}
   if(next){var p=next.p,leaveBy=next.arrive-(next.leg||0),late=live&&nowMin>leaveBy+5&&nowMin<next.arrive,hrs=p.hours?ohCheck(p,dp.date,next.arrive,next.leave):null;
     h+='<div class="card nextc"><div class="ct">'+(live&&nowMin>=next.arrive?'Now':'Next up')+'</div><div class="nname">'+esc(p.name)+'</div>'+
       '<div class="small">'+(next.leg?'Leave by <b>'+hm(leaveBy)+'</b> · ~'+dur(next.leg)+' drive · ':'')+'arrive '+hm(next.arrive)+', '+dur(mins(p))+' there'+(late?' · <b class="warn">running late</b>':'')+'</div>'+
       (hrs?'<div class="small '+(hrs.bad?'warn':'bk')+'">'+esc(hrs.txt)+'</div>':'')+(p.booked||p.conf?'<div class="small">'+(p.booked?'<b class="bk">Booked</b> ':'')+(p.slot?esc(p.slot)+' ':'')+(p.conf?'· ref '+esc(p.conf):'')+'</div>':'')+
-      '<div class="acts">'+(hasLoc(p)?'<a class="btn primary" href="https://www.google.com/maps/dir/?api=1&destination='+p.lat.toFixed(5)+','+p.lng.toFixed(5)+'&travelmode=driving" target="_blank" rel="noopener">Navigate ↗</a>':'')+'<button class="btn" data-act="open" data-id="'+p.id+'">Details</button>'+(live?'<button class="btn" data-act="done" data-id="'+p.id+'">✓ Done</button>':'')+'</div></div>';}
-  else h+='<div class="empty">Nothing planned for this day. Add stops in Plan.</div>';
-  if(dp.rows.length>1){h+='<div class="sect"><span>Rest of the day</span></div>';dp.rows.forEach(function(r,i){if(next&&r===next)return;if(live&&r.leave<=nowMin)return;var c=r.p.hours?ohCheck(r.p,dp.date,r.arrive,r.leave):null;h+=row(r.p,{num:i+1,meta:['<b>'+hm(r.arrive)+'</b>',dur(mins(r.p))].concat(c&&c.bad?['<b class="warn">'+esc(c.txt)+'</b>']:[]),actions:''})})}
+      '<div class="acts">'+(hasLoc(p)?'<a class="btn primary" href="https://www.google.com/maps/dir/?api=1&destination='+p.lat.toFixed(5)+','+p.lng.toFixed(5)+'&travelmode=driving" target="_blank" rel="noopener">Navigate ↗</a>':'')+'<button class="btn" data-act="open" data-id="'+p.id+'">Details</button>'+'<button class="btn" data-act="chk" data-id="'+p.id+'">✓ Check off</button></div></div>';}
+  else h+='<div class="empty">'+(dp.rows.length?'✓ Everything on today’s list is checked off.':'Nothing planned for this day. Add stops in Plan.')+'</div>';
+  if(dp.rows.length>(next?1:0)){var nC=dp.rows.filter(function(r){return r.p.chk}).length;h+='<div class="sect"><span>Day checklist · '+nC+' of '+dp.rows.length+' done</span></div>';dp.rows.forEach(function(r,i){if(next&&r===next)return;var c=r.p.hours?ohCheck(r.p,dp.date,r.arrive,r.leave):null;h+=row(r.p,{num:i+1,cls:r.p.chk?'ticked':'',meta:(r.p.chk?['<b class="bk">✓ '+hmClock(r.p.chk)+'</b>']:[]).concat(['<b>'+hm(r.arrive)+'</b>',dur(mins(r.p))]).concat(c&&c.bad&&!r.p.chk?['<b class="warn">'+esc(c.txt)+'</b>']:[]),actions:'<button class="ib ck'+(r.p.chk?' on':'')+'" title="'+(r.p.chk?'Untick':'Check off')+'" data-act="chk" data-id="'+r.p.id+'">✓</button>'})})}
   if(!ui.hide.pack)h+=wearSummary(n);
   if(!ui.hide.spend){var spentToday=state.spend.items.filter(function(e){return e.day===n}).reduce(function(s,e){return s+usd(e)},0);
   h+='<div class="card"><div class="srow"><span class="grow">Spent on Day '+n+': <b>'+usdf(spentToday)+'</b></span><button class="btn sm" data-act="gospend">Log a purchase</button></div></div>'}
@@ -934,7 +935,7 @@ function row(p,opts){
   opts=opts||{};var c=(CATS[p.cat]||CATS.scenic)[1];
   var meta=opts.meta||[(CATS[p.cat]||['?'])[0]];
   if(!opts.meta){if(p.booked)meta.push('<b class="bk">Booked</b>');if(!hasLoc(p))meta.push('<b class="warn">No location</b>');if(p.notes)meta.push(esc(p.notes.slice(0,60))+(p.notes.length>60?'…':''))}
-  return '<div class="row'+(opts.faded?' faded':'')+'" data-open="'+p.id+'">'+(opts.drag?'<span class="dh" aria-label="Drag to move" title="Drag to move">⠿</span>':'')+(opts.num?'<span class="num" style="background:'+c+'">'+opts.num+'</span>':'<i class="sw" style="background:'+c+';width:12px;height:12px"></i>')+
+  return '<div class="row'+(opts.faded?' faded':'')+(opts.cls?' '+opts.cls:'')+'" data-open="'+p.id+'">'+(opts.drag?'<span class="dh" aria-label="Drag to move" title="Drag to move">⠿</span>':'')+(opts.num?'<span class="num" style="background:'+c+'">'+opts.num+'</span>':'<i class="sw" style="background:'+c+';width:12px;height:12px"></i>')+
   '<div class="nm"><div>'+esc(p.name)+'</div><div class="meta">'+meta.join(' · ')+'</div></div><div class="ra">'+(opts.actions||'')+'</div></div>';
 }
 function baseOptions(sel,label){
@@ -983,7 +984,7 @@ function renderPanel(){
       '<div class="small">'+dur(dp.drive)+' driving + '+dur(dp.onsite)+' at stops → back ~'+hm(dp.finish)+(over?' <b class="warn">('+dur(dp.finish-dp.sun.set)+' after sunset)</b>':' <b class="bk">fits in daylight</b>')+'</div>'+
       '<div class="two" style="margin-top:8px"><div class="f"><label>Start from</label><select data-act="sbase">'+baseOptions(c.start,startBase(n)&&!c.start?'Last night’s base ('+esc(startBase(n).name)+')':'Choose a base…')+'</select></div><div class="f"><label>Sleep at</label><select data-act="ebase">'+baseOptions(c.end,'Same as start')+'</select></div></div>'+
       dayRouteLink(dp)+(dp.warn.length?'<ul class="al">'+dp.warn.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'</div>';
-    h+='<div class="sect"><span>Stops</span><span>'+(dp.rows.length?'<button class="lnk" data-act="hoursday">Check opening hours</button> <button class="lnk" data-act="clearday">Clear day</button>':'')+'</span></div>';
+    var nChk=dp.rows.filter(function(r){return r.p.chk}).length;h+='<div class="sect"><span>Stops'+(dp.rows.length?' · '+nChk+' of '+dp.rows.length+' done':'')+'</span><span>'+(dp.rows.length?'<button class="lnk" data-act="hoursday">Check opening hours</button> <button class="lnk" data-act="clearday">Clear day</button>':'')+'</span></div>';
     h+='<div id="dzDay">';
     if(!dp.rows.length)h+='<div class="empty">Nothing planned yet. Drag stops here from your queue (⠿), or tap + Day.</div>';
     if(hasLoc(dp.start)&&dp.rows.length)h+='<div class="leg">⌂ '+esc(dp.start.name)+' · leave '+hm(dp.leaveAt)+'</div>';
@@ -992,8 +993,8 @@ function renderPanel(){
       var p=r.p;if(r.leg)h+='<div class="leg">↓ ~'+dur(r.leg)+' drive · '+Math.round(km(r.from,p)*ROAD)+' km'+(r.from&&hasLoc(p)?' · <a href="'+gdir(r.from,p)+'" target="_blank" rel="noopener">directions</a>':'')+'</div>';
       var sw=byId(p.swapId),meta=['<b>'+hm(r.arrive)+'–'+hm(r.leave)+'</b>',dur(mins(p))];
       if(r.late)meta.push('<b class="warn">ends after dark</b>');if(p.hours){var hc=ohCheck(p,dp.date,r.arrive,r.leave);if(hc)meta.push(hc.bad?'<b class="warn">'+esc(hc.txt)+'</b>':'<span class="bk">'+esc(hc.txt)+'</span>')}if(r.miss)meta.push('<b class="warn">late for '+esc(p.slot)+'</b>');if(p.booked)meta.push('<b class="bk">Booked'+(p.slot?' '+esc(p.slot):'')+'</b>');if(+p.cost)meta.push(money(+p.cost));
-      var acts=(sw?'<button class="btn sm'+(wet?' hot':'')+'" data-act="swap" data-id="'+p.id+'" title="Swap with '+esc(sw.name)+'">☔ '+esc(sw.name.slice(0,14))+'</button>':'')+'<button class="ib" title="Mark done" data-act="done" data-id="'+p.id+'">✓</button><button class="ib" title="Back to queue" data-act="unplan" data-id="'+p.id+'">↩</button>';
-      h+=row(p,{num:i+1,meta:meta,actions:acts,drag:true});
+      var acts=(sw?'<button class="btn sm'+(wet?' hot':'')+'" data-act="swap" data-id="'+p.id+'" title="Swap with '+esc(sw.name)+'">☔ '+esc(sw.name.slice(0,14))+'</button>':'')+'<button class="ib ck'+(p.chk?' on':'')+'" title="'+(p.chk?'Untick':'Check off')+'" data-act="chk" data-id="'+p.id+'">✓</button><button class="ib" title="Back to queue" data-act="unplan" data-id="'+p.id+'">↩</button>';
+      if(p.chk)meta.unshift('<b class="bk">✓ '+hmClock(p.chk)+'</b>');h+=row(p,{num:i+1,meta:meta,actions:acts,drag:true,cls:p.chk?'ticked':''});
     });
     if(dp.back&&hasLoc(dp.end))h+='<div class="leg">↓ ~'+dur(dp.back)+' drive · <a href="'+gdir(dp.lastStop,dp.end)+'" target="_blank" rel="noopener">directions</a><br>⌂ '+esc(dp.end.name)+' · ~'+hm(dp.finish)+'</div>';
     h+='</div>';
@@ -1104,6 +1105,7 @@ function act(a,el){
     case 'ebase':cfg(n).end=el.value||'';commit();render();fitDay(n);return;
     case 'setday':p.day=+el.value;p.order=nextOrder();commit();render();if(p.day)toast(p.name+' → '+dayLabel(p.day),before);return;
     case 'addday':p.day=n;p.order=nextOrder();commit();render();toast(p.name+' → Day '+n,before);return;
+    case 'chk':p.chk=p.chk?0:Date.now();commit();render();toast(p.chk?'✓ '+p.name:'Unticked '+p.name,before);return;
     case 'unplan':p.day=0;commit();render();toast(p.name+' back in queue',before);return;
     case 'done':p.stage='done';p.day=0;commit();render();toast(p.name+' marked done',before);return;
     case 'tolib':p.stage='library';p.day=0;commit();render();toast(p.name+' moved to Library',before);return;

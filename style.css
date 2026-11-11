@@ -358,3 +358,8 @@ html[data-theme=dark] .sdot{box-shadow:0 0 0 2px var(--card)}
 html[data-theme=dark] .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
 html[data-theme=dark] #hint,html[data-theme=dark] #toast{background:#e6ebec;color:#141819}
 html[data-theme=dark] .bsun{background:#e6ebec}
+
+/* checklist */
+.row.ticked .nm div:first-child{text-decoration:line-through;text-decoration-thickness:1.5px;opacity:.6}
+.row.ticked .num{opacity:.5}
+.ib.ck.on{background:#2e9b5a;color:#fff;border-radius:50%}
