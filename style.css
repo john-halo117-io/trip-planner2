@@ -274,3 +274,9 @@ button,.chip,.tab,.seg,.ib{touch-action:manipulation}
 /* visited list in Queue */
 details.vis summary{list-style:none;cursor:pointer}details.vis summary::-webkit-details-marker{display:none}
 details.vis[open] summary .o{display:none}
+
+/* QR share / scan */
+.qrl{position:fixed;inset:0;z-index:10000;background:rgba(15,22,25,.72);display:flex;align-items:center;justify-content:center;padding:16px}
+.qrbox{background:var(--card,#fff);border-radius:16px;padding:16px;max-width:360px;width:100%;text-align:center}
+.qrimg{background:#fff;padding:8px;margin:8px auto}.qrimg svg{width:100%;height:auto;max-width:300px;display:block;margin:0 auto}
+.qrvid{width:100%;border-radius:12px;background:#000;aspect-ratio:1/1;object-fit:cover;margin:8px 0}

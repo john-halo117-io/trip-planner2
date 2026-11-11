@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var APP_VERSION='2026.11.11-code';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.11.11-qr';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0],shop:['Books & antiques','#8a5a2b',75]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -200,9 +200,9 @@ function syncCard(){
     '<div class="f"><label>Publishable key (never the secret key)</label><input id="syKey" placeholder="sb_publishable_…" autocomplete="off" autocapitalize="off" spellcheck="false"></div>'+
     '<div class="acts"><button class="btn primary" id="syNew">Start syncing this trip</button></div>'+
     '<div class="f" style="margin-top:10px"><label>…or join with a sync code from your partner or other device</label><textarea id="syCode" placeholder="TP1:…" style="min-height:54px;font-family:ui-monospace,monospace;font-size:12px" autocapitalize="off" spellcheck="false"></textarea></div>'+
-    '<div class="acts"><button class="btn" id="syJoin">Join trip</button></div><div class="small" id="syncMsg" style="min-height:18px"></div></div>';
+    '<div class="acts"><button class="btn" id="syJoin">Join trip</button><button class="btn" id="syScan">📷 Scan QR code</button></div><div class="small" id="syncMsg" style="min-height:18px"></div></div>';
   return '<div class="card"><div class="ct">🔒 Sync &amp; travel partner</div><div class="small">On · end-to-end encrypted · '+esc(sync.url.replace('https://',''))+'</div><div class="small" id="syncMsg" style="min-height:18px">'+esc(syncState.msg)+'</div>'+
-    '<div class="acts"><button class="btn" id="sySync">Sync now</button><button class="btn" id="syShare">Share sync code</button></div>'+
+    '<div class="acts"><button class="btn" id="sySync">Sync now</button><button class="btn" id="syShare">Share sync code</button><button class="btn" id="syQR">Show QR code</button></div>'+
     '<div class="small o" style="margin-top:6px">The sync code is the key to your trip: anyone who has it can read and edit it. Only send it to your partner through an encrypted chat (iMessage or Signal), and never post it anywhere.</div>'+
     '<div class="acts"><button class="btn" id="syOff">Stop syncing on this phone</button><button class="btn danger" id="syDel">Delete trip from server</button></div></div>';
 }
@@ -215,6 +215,8 @@ function bindSyncCard(){
     var sec=b64u(crypto.getRandomValues(new Uint8Array(32)));b.disabled=true;startSync({url:url,key:key,secret:sec},true).then(function(){$('#bTrip').click()},function(){b.disabled=false})});
   on('syJoin',function(b){var cfg=readCode($('#syCode').value);if(!cfg){syncStatus(codeHint($('#syCode').value),false);return}b.disabled=true;startSync(cfg,false).then(function(){$('#syCode').value='';$('#bTrip').click()},function(){b.disabled=false})});
   on('sySync',function(){syncNow()});
+  on('syQR',function(){showQR(makeCode(sync.url,sync.key,sync.secret))});
+  on('syScan',function(){scanQR(function(txt){$('#syCode').value=txt;$('#syJoin').click()})});
   on('syShare',function(){var code=makeCode(sync.url,sync.key,sync.secret);
     if(navigator.share)navigator.share({text:code}).catch(function(){});else{try{navigator.clipboard.writeText(code).then(function(){syncStatus('Code copied, so paste it into an encrypted chat')})}catch(e){}}});
   on('syOff',function(){stopSync();$('#bTrip').click()});
@@ -1270,6 +1272,28 @@ try{if(JSON.stringify(JSON.parse(localStorage.getItem(LS)||'null'))!==JSON.strin
 if(tripStatus().phase==='during')ui.tab='today';
 render();initMap();
 
+
+/* ---------- QR codes for the sync code (libraries self-hosted, loaded only when used) ---------- */
+function loadLib(src,name){return window[name]?Promise.resolve(window[name]):new Promise(function(ok,no){var s=document.createElement('script');s.src=src;s.onload=function(){window[name]?ok(window[name]):no(new Error('load'))};s.onerror=function(){no(new Error('load'))};document.head.appendChild(s)})}
+function qrLayer(inner){var d=document.createElement('div');d.className='qrl';d.innerHTML='<div class="qrbox">'+inner+'<div class="acts" style="justify-content:center"><button class="btn primary" data-qx>Close</button></div></div>';document.body.appendChild(d);return d}
+function showQR(code){
+  loadLib('vendor/qrcode.js','qrcode').then(function(q){var qr=q(0,'M');qr.addData(code);qr.make();
+    var d=qrLayer('<div class="ct">Scan to join this trip</div><div class="qrimg">'+qr.createSvgTag(5,3)+'</div><div class="small">On your partner’s phone: Trip → <b>📷 Scan QR code</b>.<br><b>Show this in person only.</b> Anyone who scans or photographs it can open and edit the trip. It closes by itself in 2 minutes.</div>');
+    function close(){clearTimeout(t);document.removeEventListener('visibilitychange',close);d.remove()}
+    var t=setTimeout(close,120000);document.addEventListener('visibilitychange',close);d.querySelector('[data-qx]').onclick=close})
+  .catch(function(){toast('Couldn’t load the QR maker. Use Share sync code instead.')})}
+function scanQR(done){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){syncStatus('This browser can’t use the camera here. Paste the code instead.',false);return}
+  var d=qrLayer('<div class="ct">Point at the QR code</div><video class="qrvid" playsinline muted autoplay></video><div class="small" id="qrMsg">Starting camera…</div>'),v=d.querySelector('video'),cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true}),stream=null,live=true,last=0;
+  function stop(){live=false;document.removeEventListener('visibilitychange',stop);if(stream)stream.getTracks().forEach(function(t){t.stop()});d.remove()}
+  d.querySelector('[data-qx]').onclick=stop;document.addEventListener('visibilitychange',stop);
+  Promise.all([loadLib('vendor/jsQR.js','jsQR'),navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})]).then(function(r){var jsQR=r[0];stream=r[1];if(!live){stop();return}
+    v.srcObject=stream;v.play().catch(function(){});$('#qrMsg').textContent='Hold steady so the whole code is in view.';
+    (function tick(ts){if(!live)return;requestAnimationFrame(tick);if(ts-last<150||v.readyState<2)return;last=ts;
+      var w=v.videoWidth,h=v.videoHeight;if(!w)return;var k=Math.min(1,640/Math.max(w,h));cv.width=Math.round(w*k);cv.height=Math.round(h*k);cx.drawImage(v,0,0,cv.width,cv.height);
+      var res=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'dontInvert'});
+      if(res&&res.data){if(readCode(res.data)){stop();done(res.data)}else $('#qrMsg').textContent='That QR code isn’t a trip sync code.'}})(0)})
+  .catch(function(e){var m=e&&e.name==='NotAllowedError'?'Camera blocked. Allow it in Settings → Safari → Camera (or for this app), or paste the code instead.':'Couldn’t start the camera. Paste the code instead.';var el=$('#qrMsg');if(el)el.textContent=m})}
 /* ---------- drag & drop in Plan (pointer events: works with touch on iPhone) ---------- */
 var drag=null,dragEndAt=0,dragAS=null,dragY=0;
 function dragMarks(){$$('.dzon,.dzt,.dzb').forEach(function(x){x.classList.remove('dzon','dzt','dzb')})}

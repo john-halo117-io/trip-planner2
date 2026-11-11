@@ -35,16 +35,20 @@ jobs:
       - name: Build site
         env:
           MAPLIBRE: maplibre-gl@4.7.1
+          QRGEN: qrcode-generator@1.4.4
+          JSQR: jsqr@1.4.0
         run: |
           set -euo pipefail
           mkdir -p _site/vendor/fonts work
           cd work
-          npm pack "$MAPLIBRE" @fontsource/inter@5 @fontsource/fraunces@5 --silent --ignore-scripts
-          expected=$(npm view "$MAPLIBRE" dist.integrity)
-          actual="sha512-$(openssl dgst -sha512 -binary maplibre-gl-4.7.1.tgz | openssl base64 -A)"
-          [ "$expected" = "$actual" ] || { echo "MapLibre checksum mismatch"; exit 1; }
+          npm pack "$MAPLIBRE" "$QRGEN" "$JSQR" @fontsource/inter@5 @fontsource/fraunces@5 --silent --ignore-scripts
+          check() { expected=$(npm view "$1" dist.integrity); actual="sha512-$(openssl dgst -sha512 -binary "$2" | openssl base64 -A)"; [ "$expected" = "$actual" ] || { echo "Checksum mismatch: $1"; exit 1; }; }
+          check "$MAPLIBRE" maplibre-gl-4.7.1.tgz
+          check "$QRGEN" qrcode-generator-1.4.4.tgz
+          check "$JSQR" jsqr-1.4.0.tgz
           for t in *.tgz; do mkdir -p "x-${t%.tgz}" && tar -xzf "$t" -C "x-${t%.tgz}"; done
           cp x-maplibre-gl-*/package/dist/maplibre-gl.js x-maplibre-gl-*/package/dist/maplibre-gl.css ../_site/vendor/
+          cp x-qrcode-generator-*/package/qrcode.js x-jsqr-*/package/dist/jsQR.js ../_site/vendor/
           for w in 400 500 600; do cp x-fontsource-inter-*/package/files/inter-latin-$w-normal.woff2 ../_site/vendor/fonts/; done
           cp x-fontsource-fraunces-*/package/files/fraunces-latin-600-normal.woff2 ../_site/vendor/fonts/
           cd ..

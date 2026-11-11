@@ -15,7 +15,7 @@ No build step: plain HTML/CSS/JS. Host as static files (GitHub Pages).
 - No API keys or secrets anywhere: every service used is free and keyless.
 - Your trip data stays on your phone. If you turn on sync, it's encrypted on the phone first (AES-256-GCM, keys derived with HKDF from a 256-bit random sync code). The server stores only ciphertext and a SHA-256 of the write key, the table is locked behind row-level security, and the app can only call three narrow functions.
 - The site sets a strict Content-Security-Policy: scripts only from this site; network calls only to the map, weather, exchange-rate and place-search services listed above.
-- MapLibre and the fonts are self-hosted at pinned versions during deploy (MapLibre checksum-verified), so no third-party scripts or fonts load.
+- MapLibre, the QR libraries (qrcode-generator, jsQR) and the fonts are self-hosted at pinned versions during deploy (MapLibre and the QR libraries checksum-verified), so no third-party scripts or fonts load. The QR code is drawn and read entirely on the phone.
 - GitHub Actions are pinned to exact commits; Dependabot watches them for updates.
 - The app refuses to run inside another site's frame, and place searches are never cached on the device.
 - Deploys run through GitHub Actions with least-privilege permissions; GitHub Pages serves it over HTTPS only.
