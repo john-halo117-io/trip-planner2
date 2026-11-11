@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var APP_VERSION='2026.11.11-drag';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.11.11-lite';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0],shop:['Books & antiques','#8a5a2b',75]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -72,7 +72,7 @@ if(!state){try{state=migrate(JSON.parse(document.getElementById('seed').textCont
 if(!state)state=migrate({v:2,updated:0,trip:{start:'',days:7},pins:[]});
 var ui={tab:'queue',day:1,cat:'all',showLib:false,min:false,t:null,q:''};
 try{var u=JSON.parse(localStorage.getItem(LSUI));if(u)for(var k in u)ui[k]=u[k]}catch(e){}
-(function(){var T={today:1,queue:1,plan:1,pack:1,near:1,spend:1,library:1,done:1};if(ui.area&&!/^[a-z]{3,4}$/.test(ui.area))ui.area='auto';if(ui.tcat&&!/^[a-z]{3,6}$/.test(ui.tcat))ui.tcat='all';if(ui.ecat&&!/^[a-z]{3,6}$/.test(ui.ecat))ui.ecat='food';if(ui.tier&&!/^(all|fine|mid|casual)$/.test(ui.tier))ui.tier='all';if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;var H=ui.hide&&typeof ui.hide==='object'?ui.hide:{spend:true,pack:true};ui.hide={spend:H.spend!==false,pack:H.pack!==false};if(ui.hide[ui.tab])ui.tab='today';ui.showLib=!!ui.showLib;
+(function(){var T={today:1,queue:1,plan:1,pack:1,near:1,spend:1,library:1,done:1};if(ui.area&&!/^[a-z]{3,4}$/.test(ui.area))ui.area='auto';if(ui.tcat&&!/^[a-z]{3,6}$/.test(ui.tcat))ui.tcat='all';if(ui.ecat&&!/^[a-z]{3,6}$/.test(ui.ecat))ui.ecat='food';if(ui.tier&&!/^(all|fine|mid|casual)$/.test(ui.tier))ui.tier='all';if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;var H=ui.hide&&typeof ui.hide==='object'?ui.hide:{spend:true,pack:true};ui.hide={spend:H.spend!==false,pack:H.pack!==false};if(ui.hide[ui.tab])ui.tab='today';if(ui.tab==='done')ui.tab='queue';ui.showLib=!!ui.showLib;
   var v=ui.view;if(!(v&&v.c&&isFinite(v.c[0])&&isFinite(v.c[1])&&Math.abs(v.c[0])<=180&&Math.abs(v.c[1])<=85&&isFinite(v.z)&&v.z>=0&&v.z<=20))ui.view=null;if(ui.spCat&&!/^\w+$/.test(ui.spCat))ui.spCat='food';if(ui.who!=null&&!/^[\w-]{1,20}$/.test(String(ui.who)))ui.who=null})();
 if(ui.day>state.trip.days)ui.day=1;
 function saveUI(){try{localStorage.setItem(LSUI,JSON.stringify(ui))}catch(e){}}
@@ -80,12 +80,16 @@ function saveUI(){try{localStorage.setItem(LSUI,JSON.stringify(ui))}catch(e){}}
 /* ---------- persistence (this device) + live data ---------- */
 var timer=null,editing=false,pending=false,fxRate=null,fxAt='',wx=state.wx||null,geo=null;
 if(state.fx){fxRate=state.fx.gbpUsd;fxAt=state.fx.at}
-function setSave(t){var el=$('#save');if(el)el.textContent=t}
+var syncPend=false;
+function syncDot(){var b=$('#bTrip');if(!b)return;var d=b.querySelector('.sdot');if(!sync){if(d)d.remove();b.removeAttribute('aria-label');return}
+  if(!d){d=document.createElement('i');b.appendChild(d)}var st=!navigator.onLine?'off':(syncPend||syncBusy)?'busy':syncState.ok?'ok':'bad';
+  d.className='sdot '+st;d.title={off:'Offline: will sync when you have signal',busy:'Syncing…',ok:'Synced',bad:'Sync problem: open Trip'}[st];b.setAttribute('aria-label','Trip. '+d.title)}
+function setSave(t){var el=$('#save');if(el)el.textContent=t;syncDot()}
 function persist(){try{localStorage.setItem(LS,JSON.stringify(state));setSave('Saved')}catch(e){setSave('Couldn’t save — storage full?')}}
 function commit(){state.updated=Date.now();if(sync){try{stampAll()}catch(e){}}persist();if(sync)scheduleSync();clearTimeout(timer);timer=setTimeout(function(){if(planKey()!==(wx&&wx.key))refreshWx(true)},1500)}
 function busyInput(){return false}
 document.addEventListener('visibilitychange',function(){if(document.hidden){saveUI();if(sync)syncNow()}else{maybeRefresh();if(sync)scheduleSync(300)}});
-window.addEventListener('online',function(){if(sync)scheduleSync(300)});
+window.addEventListener('online',function(){if(sync)scheduleSync(300)});window.addEventListener('offline',syncDot);
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 var WMO={0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Freezing fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',56:'Freezing drizzle',57:'Freezing drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',66:'Freezing rain',67:'Freezing rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Showers',81:'Heavy showers',82:'Violent showers',85:'Snow showers',86:'Heavy snow showers',95:'Thunderstorm',96:'Thunderstorm with hail',99:'Thunderstorm with hail'};
 var wxBusy=false;
@@ -153,11 +157,11 @@ function mergeStates(L,R){var del=Object.assign({},R.del||{});Object.keys(L.del|
 function setBase(s){syncBase=syncable(s);try{localStorage.setItem(LSBASE,JSON.stringify(syncBase))}catch(e){}}
 function saveSyncCfg(){try{if(sync)localStorage.setItem(LSSYNC,JSON.stringify(sync));else{localStorage.removeItem(LSSYNC);localStorage.removeItem(LSBASE)}}catch(e){}}
 function syncStatus(msg,ok){syncState={msg:msg,ok:ok!==false,at:Date.now()};var el=$('#syncMsg');if(el)el.textContent=msg;setSave(ok===false?'⚠ '+msg:msg)}
-function scheduleSync(ms){if(!sync)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,ms==null?2500:ms)}
+function scheduleSync(ms){if(!sync)return;clearTimeout(syncTimer);syncPend=true;syncDot();syncTimer=setTimeout(syncNow,ms==null?2500:ms)}
 function syncNow(){
   if(!sync)return Promise.resolve();if(syncBusy){syncAgain=true;return Promise.resolve()}
   if(!navigator.onLine){syncStatus('Offline — will sync later',true);return Promise.resolve()}
-  syncBusy=true;var tries=0;
+  syncBusy=true;syncPend=false;var tries=0;
   function ready(){return syncK?Promise.resolve():deriveKeys(sync.secret).then(function(k){syncK=k})}
   function pull(){return rpc('get_trip',{p_id:syncK.id}).then(function(rows){var row=rows&&rows[0];if(!row)return null;
     if(+row.version===sync.version)return null;
@@ -170,7 +174,7 @@ function syncNow(){
       sync.version=v;saveSyncCfg();setBase(cur);return 'pushed'})}
   return ready().then(pull).then(push).then(function(){syncStatus('Synced ✓ '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}))},function(e){
       var m=String(e&&e.message||e);syncStatus(/not allowed/i.test(m)?'Sync refused: this code can’t edit that trip':/Failed to fetch|NetworkError|Load failed/i.test(m)?'Can’t reach sync server — will retry':/bad code|decrypt|OperationError/i.test(m)?'Sync code doesn’t match this trip':'Sync problem: '+m.slice(0,80),false)})
-    .then(function(){syncBusy=false;if(syncAgain){syncAgain=false;scheduleSync(500)}});
+    .then(function(){syncBusy=false;syncDot();if(syncAgain){syncAgain=false;scheduleSync(500)}});
 }
 function makeCode(url,key,secret){return 'TP1:'+b64u(enc.encode(JSON.stringify({u:url,k:key,s:secret})))}
 function readCode(c){c=String(c||'').trim().replace(/\s+/g,'');if(!/^TP1:[A-Za-z0-9_-]+$/.test(c))return null;try{var o=JSON.parse(decd.decode(ub64u(c.slice(4))));if(validUrl(o.u)&&keyKind(o.k)==='pub'&&ub64u(o.s).length===32)return {url:o.u,key:o.k,secret:o.s}}catch(e){}return null}
@@ -908,7 +912,7 @@ function renderTabs(){
   var q=inStage('queue').length,lib=inStage('library').length,dn=inStage('done').length,pl=state.pins.filter(function(p){return p.stage==='queue'&&p.day}).length;
   var pkm=gearOf(curPerson().id),pk=pkm.filter(function(i){return i.packed}).length+'/'+pkm.length;
   var spent=state.spend.items.reduce(function(s,e){return s+usd(e)},0);
-  var tabs=[['today','Today',''],['queue','Queue',q],['plan','Plan',pl],['pack','Pack',pk],['near','Tips',''],['spend','Spend',usdf(spent)],['library','Library',lib],['done','Done',dn]].filter(function(t){return !ui.hide[t[0]]});
+  var tabs=[['today','Today',''],['plan','Plan',pl],['queue','Queue',q],['library','Library',lib],['pack','Pack',pk],['spend','Spend',usdf(spent)]].filter(function(t){return !ui.hide[t[0]]});
   $('#tabs').innerHTML=tabs.map(function(t){return '<button class="tab'+(ui.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+(t[2]!==''?' <span class="n">'+t[2]+'</span>':'')+'</button>'}).join('')+'<button class="tab tog" id="tog">'+(ui.min?'▲':'▼')+'</button>';
   $$('[data-tab]').forEach(function(b){b.onclick=function(){var nt=b.getAttribute('data-tab');if(ui.min){ui.min=false;$('#panel').classList.remove('min');setTimeout(resize,60)}ui.tab=nt;saveUI();render();$('#pbody').scrollTop=0;
     if(nt==='near'){var ar0=curArea();if(map)map.flyTo({center:[ar0.lng,ar0.lat],zoom:ar0.r>30?8:ar0.r>15?10:12.5,duration:700})}
@@ -957,6 +961,9 @@ function renderPanel(){
       up.forEach(function(p){h+=row(p,{actions:daySelect(p)+'<button class="ib" title="Back to Library" data-act="tolib" data-id="'+p.id+'">✕</button>'})})}
     if(planned.length){h+='<div class="sect"><span>Already on a day</span><button class="lnk" data-act="goplan">Open Plan →</button></div>';
       planned.sort(function(a,b){return a.day-b.day||(a.order||0)-(b.order||0)}).forEach(function(p){h+=row(p,{faded:true,actions:'<span class="dayb">D'+p.day+'</span>'})})}
+    var vis=inStage('done').filter(catOk);
+    if(vis.length){h+='<details class="vis"><summary class="sect"><span>✓ Visited ('+vis.length+')</span><span class="o">tap to show</span></summary>';
+      vis.forEach(function(p){h+=row(p,{faded:true,actions:'<button class="ib" title="Back to queue" data-act="toq" data-id="'+p.id+'">↩</button>'})});h+='</details>'}
   }
   else if(ui.tab==='plan'){
     var n=ui.day,dp=dayPlan(n),c=state.trip.dayCfg[n]||{},total=state.pins.filter(function(p){return p.stage!=='library'}).reduce(function(a,p){return a+(+p.cost||0)},0);

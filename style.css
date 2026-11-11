@@ -266,3 +266,11 @@ button,.chip,.tab,.seg,.ib{touch-action:manipulation}
 .dzb{box-shadow:inset 0 -3px 0 var(--accent,#2a6f7a)}
 #dzDay.dzon,#dzQueue.dzon{background:rgba(42,111,122,.08);border-radius:10px}
 .chip.dzon{outline:2px solid var(--accent,#2a6f7a)}
+
+/* sync status dot on the Trip button */
+#bTrip{position:relative}
+.sdot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:#9aa3a6;box-shadow:0 0 0 2px var(--card,#fff)}
+.sdot.ok{background:#2e9b5a}.sdot.busy{background:#e0a526}.sdot.bad{background:#c8423b}.sdot.off{background:#9aa3a6}
+/* visited list in Queue */
+details.vis summary{list-style:none;cursor:pointer}details.vis summary::-webkit-details-marker{display:none}
+details.vis[open] summary .o{display:none}
