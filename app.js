@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var APP_VERSION='2026.10.30-food';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.11.11-trim';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0],shop:['Books & antiques','#8a5a2b',75]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -72,7 +72,7 @@ if(!state){try{state=migrate(JSON.parse(document.getElementById('seed').textCont
 if(!state)state=migrate({v:2,updated:0,trip:{start:'',days:7},pins:[]});
 var ui={tab:'queue',day:1,cat:'all',showLib:false,min:false,t:null,q:''};
 try{var u=JSON.parse(localStorage.getItem(LSUI));if(u)for(var k in u)ui[k]=u[k]}catch(e){}
-(function(){var T={today:1,queue:1,plan:1,pack:1,near:1,spend:1,library:1,done:1};if(ui.area&&!/^[a-z]{3,4}$/.test(ui.area))ui.area='auto';if(ui.tcat&&!/^[a-z]{3,6}$/.test(ui.tcat))ui.tcat='all';if(ui.ecat&&!/^[a-z]{3,6}$/.test(ui.ecat))ui.ecat='food';if(ui.tier&&!/^(all|fine|mid|casual)$/.test(ui.tier))ui.tier='all';if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;ui.showLib=!!ui.showLib;
+(function(){var T={today:1,queue:1,plan:1,pack:1,near:1,spend:1,library:1,done:1};if(ui.area&&!/^[a-z]{3,4}$/.test(ui.area))ui.area='auto';if(ui.tcat&&!/^[a-z]{3,6}$/.test(ui.tcat))ui.tcat='all';if(ui.ecat&&!/^[a-z]{3,6}$/.test(ui.ecat))ui.ecat='food';if(ui.tier&&!/^(all|fine|mid|casual)$/.test(ui.tier))ui.tier='all';if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;var H=ui.hide&&typeof ui.hide==='object'?ui.hide:{spend:true,pack:true};ui.hide={spend:H.spend!==false,pack:H.pack!==false};if(ui.hide[ui.tab])ui.tab='today';ui.showLib=!!ui.showLib;
   var v=ui.view;if(!(v&&v.c&&isFinite(v.c[0])&&isFinite(v.c[1])&&Math.abs(v.c[0])<=180&&Math.abs(v.c[1])<=85&&isFinite(v.z)&&v.z>=0&&v.z<=20))ui.view=null;if(ui.spCat&&!/^\w+$/.test(ui.spCat))ui.spCat='food';if(ui.who!=null&&!/^[\w-]{1,20}$/.test(String(ui.who)))ui.who=null})();
 if(ui.day>state.trip.days)ui.day=1;
 function saveUI(){try{localStorage.setItem(LSUI,JSON.stringify(ui))}catch(e){}}
@@ -742,9 +742,9 @@ function renderToday(){
       '<div class="acts">'+(hasLoc(p)?'<a class="btn primary" href="https://www.google.com/maps/dir/?api=1&destination='+p.lat.toFixed(5)+','+p.lng.toFixed(5)+'&travelmode=driving" target="_blank" rel="noopener">Navigate ↗</a>':'')+'<button class="btn" data-act="open" data-id="'+p.id+'">Details</button>'+(live?'<button class="btn" data-act="done" data-id="'+p.id+'">✓ Done</button>':'')+'</div></div>';}
   else h+='<div class="empty">Nothing planned for this day. Add stops in Plan.</div>';
   if(dp.rows.length>1){h+='<div class="sect"><span>Rest of the day</span></div>';dp.rows.forEach(function(r,i){if(next&&r===next)return;if(live&&r.leave<=nowMin)return;var c=r.p.hours?ohCheck(r.p,dp.date,r.arrive,r.leave):null;h+=row(r.p,{num:i+1,meta:['<b>'+hm(r.arrive)+'</b>',dur(mins(r.p))].concat(c&&c.bad?['<b class="warn">'+esc(c.txt)+'</b>']:[]),actions:''})})}
-  h+=wearSummary(n);
-  var spentToday=state.spend.items.filter(function(e){return e.day===n}).reduce(function(s,e){return s+usd(e)},0);
-  h+='<div class="card"><div class="srow"><span class="grow">Spent on Day '+n+': <b>'+usdf(spentToday)+'</b></span><button class="btn sm" data-act="gospend">Log a purchase</button></div></div>';
+  if(!ui.hide.pack)h+=wearSummary(n);
+  if(!ui.hide.spend){var spentToday=state.spend.items.filter(function(e){return e.day===n}).reduce(function(s,e){return s+usd(e)},0);
+  h+='<div class="card"><div class="srow"><span class="grow">Spent on Day '+n+': <b>'+usdf(spentToday)+'</b></span><button class="btn sm" data-act="gospend">Log a purchase</button></div></div>'}
   h+=tipsTodayCard(n);
   h+='<button class="btn sosb" data-act="safety">🆘 Safety card: 999, grid ref, hospitals</button>';
   return h;
@@ -908,7 +908,7 @@ function renderTabs(){
   var q=inStage('queue').length,lib=inStage('library').length,dn=inStage('done').length,pl=state.pins.filter(function(p){return p.stage==='queue'&&p.day}).length;
   var pkm=gearOf(curPerson().id),pk=pkm.filter(function(i){return i.packed}).length+'/'+pkm.length;
   var spent=state.spend.items.reduce(function(s,e){return s+usd(e)},0);
-  var tabs=[['today','Today',''],['queue','Queue',q],['plan','Plan',pl],['pack','Pack',pk],['near','Tips',''],['spend','Spend',usdf(spent)],['library','Library',lib],['done','Done',dn]];
+  var tabs=[['today','Today',''],['queue','Queue',q],['plan','Plan',pl],['pack','Pack',pk],['near','Tips',''],['spend','Spend',usdf(spent)],['library','Library',lib],['done','Done',dn]].filter(function(t){return !ui.hide[t[0]]});
   $('#tabs').innerHTML=tabs.map(function(t){return '<button class="tab'+(ui.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+(t[2]!==''?' <span class="n">'+t[2]+'</span>':'')+'</button>'}).join('')+'<button class="tab tog" id="tog">'+(ui.min?'▲':'▼')+'</button>';
   $$('[data-tab]').forEach(function(b){b.onclick=function(){var nt=b.getAttribute('data-tab');if(ui.min){ui.min=false;$('#panel').classList.remove('min');setTimeout(resize,60)}ui.tab=nt;saveUI();render();$('#pbody').scrollTop=0;
     if(nt==='near'){var ar0=curArea();if(map)map.flyTo({center:[ar0.lng,ar0.lat],zoom:ar0.r>30?8:ar0.r>15?10:12.5,duration:700})}
@@ -982,7 +982,7 @@ function renderPanel(){
     });
     if(dp.back&&hasLoc(dp.end))h+='<div class="leg">↓ ~'+dur(dp.back)+' drive · <a href="'+gdir(dp.lastStop,dp.end)+'" target="_blank" rel="noopener">directions</a><br>⌂ '+esc(dp.end.name)+' · ~'+hm(dp.finish)+'</div>';
     if(dp.rows.length&&!hasLoc(dp.start))h+='<div class="small" style="padding:4px 6px">Tip: set where you’re starting from so the first drive counts.</div>';
-    h+=wearSummary(n);
+    if(!ui.hide.pack)h+=wearSummary(n);
     var up2=unplanned();
     h+='<div class="sect"><span>From your queue ('+up2.length+')</span></div>';
     if(!up2.length)h+='<div class="empty">Queue is empty — add places in the Queue tab.</div>';
@@ -1079,7 +1079,7 @@ function act(a,el){
     case 'showlib':ui.showLib=el.checked;saveUI();drawPins();return;
     case 'golib':ui.tab='library';saveUI();render();return;
     case 'goplan':ui.tab='plan';saveUI();render();fitDay(ui.day);return;
-    case 'gopack':ui.tab='pack';saveUI();render();$('#pbody').scrollTop=0;return;
+    case 'gopack':if(ui.hide.pack)return;ui.tab='pack';saveUI();render();$('#pbody').scrollTop=0;return;
     case 'day':ui.day=+el.getAttribute('data-d');saveUI();render();fitDay(ui.day);return;
     case 'leave':cfg(n).leave=el.value||'08:30';commit();render();return;
     case 'sbase':cfg(n).start=el.value||'';commit();render();fitDay(n);return;
@@ -1116,7 +1116,7 @@ function act(a,el){
     case 'fitxdel':var f4=fitFor(n,curPerson().id);if(f4){f4.extra.splice(+el.getAttribute('data-i'),1);f4.by=me().name}commit();renderPanel();return;
     case 'safety':openSafety();return;
     case 'open':if(hasLoc(p))flyTo(p,5);openEditor(p.id);return;
-    case 'gospend':ui.tab='spend';saveUI();render();$('#pbody').scrollTop=0;return;
+    case 'gospend':if(ui.hide.spend)return;ui.tab='spend';saveUI();render();$('#pbody').scrollTop=0;return;
     case 'hoursday':var hp=dayPins(n).filter(function(x){return hasLoc(x)&&!x.hours});if(!hp.length){toast('Nothing left to check');return}el.textContent='Checking…';el.disabled=true;
       (function go(i,found){if(i>=hp.length){commit();render();toast('Found hours for '+found+' of '+hp.length+' stops');return}fetchHours(hp[i]).then(function(ok){setTimeout(function(){go(i+1,found+(ok?1:0))},1100)})})(0,0);return;
     case 'spcur':state.spend.cur=el.getAttribute('data-c');commit();$$('.segs.cur .seg').forEach(function(s){s.classList.toggle('on',s===el)});return;
@@ -1202,11 +1202,13 @@ $('#bTrip').onclick=function(){
   $('#sheet').innerHTML='<h2>Trip settings</h2><div class="two"><div class="f"><label>First day</label><input type="date" id="tStart" value="'+esc(state.trip.start)+'"></div><div class="f"><label>Number of days</label><input type="number" min="1" max="30" id="tDays" value="'+state.trip.days+'"></div></div>'+
   '<p class="small">Weather is live from Open-Meteo for any trip day up to 16 days out, using each day’s base (or first stop). It refreshes when you open the app.'+(wx&&wx.fetchedAt?' Last update: '+esc(new Date(wx.fetchedAt).toLocaleString())+'.':'')+' <button class="lnk" id="tWx">Refresh now</button></p>'+
   syncCard()+
+  '<div class="card"><div class="ct">Tabs on this device</div><div class="small">Hidden tabs keep their data, and it still syncs.</div><label class="srow" style="min-height:40px"><input type="checkbox" id="tShPack"'+(ui.hide.pack?'':' checked')+'> Pack &amp; outfits</label><label class="srow" style="min-height:40px"><input type="checkbox" id="tShSpend"'+(ui.hide.spend?'':' checked')+'> Spending</label></div>'+
   '<div class="card"><div class="ct">Offline maps</div><div class="small">Saves the Scotland overview plus close-up map around every queued place, for when signal drops. Use Wi-Fi; roughly 20–60 MB.</div><div class="acts"><button class="btn" id="tOff">Save maps for offline</button></div><div class="small" id="tOffMsg"></div></div>'+
   '<div class="card"><div class="ct">On iPhone</div><div class="small">In Safari tap Share → <b>Add to Home Screen</b>. It opens full-screen like an app, can use your location, and keeps your data on the phone. Copy a backup now and then.</div></div>'+
   (total?'<p class="small">Booked costs so far: <b>'+money(total)+'</b></p>':'')+
   '<div class="f"><label>Backup — copy somewhere safe, or paste one in to restore (v1 backups work too)</label><textarea id="tJson" style="min-height:80px;font-size:11px;font-family:ui-monospace,monospace"></textarea></div><div class="small" id="tMsg" style="min-height:18px"></div>'+
   '<div class="small o" style="margin:-4px 0 8px">App version '+APP_VERSION+'</div><div class="acts"><button class="btn" id="tCopy">Copy backup</button><button class="btn" id="tRestore">Restore pasted</button><button class="btn" id="tExp">Export for Google Maps</button><span class="grow"></span><button class="btn primary" id="tDone">Done</button></div>';
+  $('#tShPack').onchange=function(){ui.hide.pack=!this.checked;if(ui.hide.pack&&ui.tab==='pack')ui.tab='today';saveUI();render()};$('#tShSpend').onchange=function(){ui.hide.spend=!this.checked;if(ui.hide.spend&&ui.tab==='spend')ui.tab='today';saveUI();render()};
   $('#tJson').value=JSON.stringify(state);$('#ov').classList.remove('hidden');
   $('#tStart').onchange=$('#tDays').onchange=function(){state.trip.start=$('#tStart').value;state.trip.days=Math.max(1,Math.min(30,+$('#tDays').value||7));state.pins.forEach(function(p){if(p.day>state.trip.days)p.day=0});if(ui.day>state.trip.days)ui.day=1;commit();render()};
   $('#tCopy').onclick=function(){var t=$('#tJson');try{navigator.clipboard.writeText(t.value).then(function(){$('#tMsg').textContent='Copied.'},function(){t.select();$('#tMsg').textContent='Selected — copy it manually.'})}catch(e){t.select();$('#tMsg').textContent='Selected — copy it manually.'}};
