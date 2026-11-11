@@ -280,3 +280,81 @@ details.vis[open] summary .o{display:none}
 .qrbox{background:var(--card,#fff);border-radius:16px;padding:16px;max-width:360px;width:100%;text-align:center}
 .qrimg{background:#fff;padding:8px;margin:8px auto}.qrimg svg{width:100%;height:auto;max-width:300px;display:block;margin:0 auto}
 .qrvid{width:100%;border-radius:12px;background:#000;aspect-ratio:1/1;object-fit:cover;margin:8px 0}
+
+/* ---------- dark theme (auto-generated overrides + hand-tuned bits) ---------- */
+html[data-theme=dark]{--sea:#1b2a30;--land:#1e2224;--land2:#262b2d;--edge:#5a6266;--ink:#e6ebec;--mute:#9aa6aa;--line:#343c3f;--bg:#141819;--accent:#4f97a8;--card:#1d2224;color-scheme:dark}
+html[data-theme=dark] .btn.danger{color:#da8580;border-color:#683732}
+html[data-theme=dark] .btn.on{background:#1f3237}
+html[data-theme=dark] .row{border-bottom:1px solid #3d4545}
+html[data-theme=dark] .row:hover{background:#242b28}
+html[data-theme=dark] .badge{background:#262e2e}
+html[data-theme=dark] .badge.want{background:#423520}
+html[data-theme=dark] .badge.booked{background:#214429}
+html[data-theme=dark] .badge.done{background:#2d3132;color:#a6acaf}
+html[data-theme=dark] .badge.skip{background:#3e201e}
+html[data-theme=dark] .f input,html[data-theme=dark] .f select,html[data-theme=dark] .f textarea{background:#212121}
+html[data-theme=dark] .tab .n{background:#262e2e}
+html[data-theme=dark] .addbar textarea{background:#212121}
+html[data-theme=dark] .mini{background:#212121}
+html[data-theme=dark] .ib:hover{background:#292d2d}
+html[data-theme=dark] .bk{color:#8ed5ab}
+html[data-theme=dark] .warn{color:#d99a7e}
+html[data-theme=dark] .dayb{background:#1f3237}
+html[data-theme=dark] .seg{background:#212121}
+html[data-theme=dark] .sw.base{background:#212121}
+html[data-theme=dark] .k{background:#2b2b1e}
+html[data-theme=dark] .k.w{background:#1f3237;border-color:#3a5b64}
+html[data-theme=dark] .al{color:#dc9e87}
+html[data-theme=dark] .tin{background:#212121}
+html[data-theme=dark] .budget{background:#423820}
+html[data-theme=dark] .cost{background:#3f361e;color:#dfca8f}
+html[data-theme=dark] .btn.hot{background:#423520;border-color:#886e41}
+html[data-theme=dark] .pi{border-bottom:1px solid #3d4545}
+html[data-theme=dark] .today{background:#1f3237}
+html[data-theme=dark] .sprow input,html[data-theme=dark] .sprow select{background:#212121}
+html[data-theme=dark] .st{background:#262e2e}
+html[data-theme=dark] .sw.base{background:#212121}
+html[data-theme=dark] .k{background:#2b2b1e}
+html[data-theme=dark] .k.w{background:#1f3237;border-color:#3a5b64}
+html[data-theme=dark] .al{color:#dc9e87}
+html[data-theme=dark] .tin{background:#212121}
+html[data-theme=dark] .budget{background:#423820}
+html[data-theme=dark] .cost{background:#3f361e;color:#dfca8f}
+html[data-theme=dark] .btn.hot{background:#423520;border-color:#886e41}
+html[data-theme=dark] .pi{border-bottom:1px solid #3d4545}
+html[data-theme=dark] .today{background:#1f3237}
+html[data-theme=dark] .mapfail{background:#212121}
+html[data-theme=dark] .row.sr{background:#312b18}
+html[data-theme=dark] .strip img{background:#2a3030}
+html[data-theme=dark] .blurb{color:#afbfc4}
+html[data-theme=dark] .hero{background:#1e3033;border-color:#35575e}
+html[data-theme=dark] .nextc{border-color:#3a5b64}
+html[data-theme=dark] .sosb{background:#331c18;border-color:#6d3b35;color:#db8b83}
+html[data-theme=dark] .k.fit.wear{background:#1f3237;border-color:#3a5b64}
+html[data-theme=dark] .k.fit.pack{background:#2b2b1e}
+html[data-theme=dark] .k.fit.off{background:#212121}
+html[data-theme=dark] .who{border-bottom:1px solid #3c4444}
+html[data-theme=dark] .fitnote{color:#afbfc4}
+html[data-theme=dark] .warnbox{background:#352a1a;color:#deba8d}
+html[data-theme=dark] .exr{border-bottom:1px solid #3c4444}
+html[data-theme=dark] .fame{background:#423520;color:#deba8d}
+html[data-theme=dark] .dghost{background:#212121}
+html[data-theme=dark] .qrimg{background:#212121}
+
+html[data-theme=dark] .qrimg{background:#fff}
+html[data-theme=dark] .dghost{background:var(--card)}
+html[data-theme=dark] .ov{background:rgba(0,0,0,.55)}
+html[data-theme=dark] .lbn,html[data-theme=dark] .lbx{color:#fff}
+html[data-theme=dark] #legend{background:rgba(29,34,36,.92);color:var(--ink)}
+html[data-theme=dark] .maplibregl-canvas{filter:invert(.9) hue-rotate(180deg) saturate(.85) brightness(.95)}
+html[data-theme=dark] .maplibregl-ctrl-group{background:var(--card)}
+html[data-theme=dark] .maplibregl-ctrl-group button+button{border-top-color:var(--line)}
+html[data-theme=dark] .maplibregl-ctrl-group button .maplibregl-ctrl-icon{filter:invert(1)}
+html[data-theme=dark] .maplibregl-ctrl-attrib{background:rgba(29,34,36,.75)!important;color:var(--mute)}
+html[data-theme=dark] .maplibregl-ctrl-attrib a{color:var(--mute)}
+html[data-theme=dark] .maplibregl-popup-content{background:var(--card);color:var(--ink)}
+html[data-theme=dark] .maplibregl-popup-tip{border-top-color:var(--card)!important;border-bottom-color:var(--card)!important}
+html[data-theme=dark] .sdot{box-shadow:0 0 0 2px var(--card)}
+html[data-theme=dark] .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+html[data-theme=dark] #hint,html[data-theme=dark] #toast{background:#e6ebec;color:#141819}
+html[data-theme=dark] .bsun{background:#e6ebec}

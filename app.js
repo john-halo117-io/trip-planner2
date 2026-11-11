@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var APP_VERSION='2026.11.11-qr';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.11.11-dark';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0],shop:['Books & antiques','#8a5a2b',75]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -72,9 +72,12 @@ if(!state){try{state=migrate(JSON.parse(document.getElementById('seed').textCont
 if(!state)state=migrate({v:2,updated:0,trip:{start:'',days:7},pins:[]});
 var ui={tab:'queue',day:1,cat:'all',showLib:false,min:false,t:null,q:''};
 try{var u=JSON.parse(localStorage.getItem(LSUI));if(u)for(var k in u)ui[k]=u[k]}catch(e){}
-(function(){var T={today:1,queue:1,plan:1,pack:1,near:1,spend:1,library:1,done:1};if(ui.area&&!/^[a-z]{3,4}$/.test(ui.area))ui.area='auto';if(ui.tcat&&!/^[a-z]{3,6}$/.test(ui.tcat))ui.tcat='all';if(ui.ecat&&!/^[a-z]{3,6}$/.test(ui.ecat))ui.ecat='food';if(ui.tier&&!/^(all|fine|mid|casual)$/.test(ui.tier))ui.tier='all';if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;var H=ui.hide&&typeof ui.hide==='object'?ui.hide:{spend:true,pack:true};ui.hide={spend:H.spend!==false,pack:H.pack!==false};if(ui.hide[ui.tab])ui.tab='today';if(ui.tab==='done')ui.tab='queue';ui.showLib=!!ui.showLib;
+(function(){var T={today:1,queue:1,plan:1,pack:1,near:1,spend:1,library:1,done:1};if(ui.area&&!/^[a-z]{3,4}$/.test(ui.area))ui.area='auto';if(ui.tcat&&!/^[a-z]{3,6}$/.test(ui.tcat))ui.tcat='all';if(ui.ecat&&!/^[a-z]{3,6}$/.test(ui.ecat))ui.ecat='food';if(ui.tier&&!/^(all|fine|mid|casual)$/.test(ui.tier))ui.tier='all';if(!T[ui.tab])ui.tab='queue';ui.day=Math.max(1,parseInt(ui.day,10)||1);if(ui.cat!=='all'&&!CATS[ui.cat])ui.cat='all';ui.q=String(ui.q||'').slice(0,60);ui.min=!!ui.min;if(!/^(auto|light|dark)$/.test(ui.theme||''))ui.theme='auto';var H=ui.hide&&typeof ui.hide==='object'?ui.hide:{spend:true,pack:true};ui.hide={spend:H.spend!==false,pack:H.pack!==false};if(ui.hide[ui.tab])ui.tab='today';if(ui.tab==='done')ui.tab='queue';ui.showLib=!!ui.showLib;
   var v=ui.view;if(!(v&&v.c&&isFinite(v.c[0])&&isFinite(v.c[1])&&Math.abs(v.c[0])<=180&&Math.abs(v.c[1])<=85&&isFinite(v.z)&&v.z>=0&&v.z<=20))ui.view=null;if(ui.spCat&&!/^\w+$/.test(ui.spCat))ui.spCat='food';if(ui.who!=null&&!/^[\w-]{1,20}$/.test(String(ui.who)))ui.who=null})();
 if(ui.day>state.trip.days)ui.day=1;
+var darkMQ=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
+function applyTheme(){var d=ui.theme==='dark'||(ui.theme==='auto'&&darkMQ&&darkMQ.matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#141819':'#fbfaf7')}
+applyTheme();if(darkMQ){try{darkMQ.addEventListener('change',applyTheme)}catch(e){try{darkMQ.addListener(applyTheme)}catch(_){}}}
 function saveUI(){try{localStorage.setItem(LSUI,JSON.stringify(ui))}catch(e){}}
 
 /* ---------- persistence (this device) + live data ---------- */
@@ -1217,12 +1220,14 @@ $('#bTrip').onclick=function(){
   $('#sheet').innerHTML='<h2>Trip settings</h2><div class="two"><div class="f"><label>First day</label><input type="date" id="tStart" value="'+esc(state.trip.start)+'"></div><div class="f"><label>Number of days</label><input type="number" min="1" max="30" id="tDays" value="'+state.trip.days+'"></div></div>'+
   '<p class="small">Weather is live from Open-Meteo for any trip day up to 16 days out, using each day’s base (or first stop). It refreshes when you open the app.'+(wx&&wx.fetchedAt?' Last update: '+esc(new Date(wx.fetchedAt).toLocaleString())+'.':'')+' <button class="lnk" id="tWx">Refresh now</button></p>'+
   syncCard()+
+  '<div class="card"><div class="ct">Appearance</div><div class="chips" style="margin-top:4px">'+[['auto','Auto'],['light','Light'],['dark','Dark']].map(function(t){return '<button class="chip'+(ui.theme===t[0]?' on':'')+'" data-theme="'+t[0]+'">'+t[1]+'</button>'}).join('')+'</div><div class="small o">Auto follows your phone’s light/dark setting.</div></div>'+
   '<div class="card"><div class="ct">Tabs on this device</div><div class="small">Hidden tabs keep their data, and it still syncs.</div><label class="srow" style="min-height:40px"><input type="checkbox" id="tShPack"'+(ui.hide.pack?'':' checked')+'> Pack &amp; outfits</label><label class="srow" style="min-height:40px"><input type="checkbox" id="tShSpend"'+(ui.hide.spend?'':' checked')+'> Spending</label></div>'+
   '<div class="card"><div class="ct">Offline maps</div><div class="small">Saves the Scotland overview plus close-up map around every queued place, for when signal drops. Use Wi-Fi; roughly 20–60 MB.</div><div class="acts"><button class="btn" id="tOff">Save maps for offline</button></div><div class="small" id="tOffMsg"></div></div>'+
   '<div class="card"><div class="ct">On iPhone</div><div class="small">In Safari tap Share → <b>Add to Home Screen</b>. It opens full-screen like an app, can use your location, and keeps your data on the phone. Copy a backup now and then.</div></div>'+
   (total?'<p class="small">Booked costs so far: <b>'+money(total)+'</b></p>':'')+
   '<div class="f"><label>Backup — copy somewhere safe, or paste one in to restore (v1 backups work too)</label><textarea id="tJson" style="min-height:80px;font-size:11px;font-family:ui-monospace,monospace"></textarea></div><div class="small" id="tMsg" style="min-height:18px"></div>'+
   '<div class="small o" style="margin:-4px 0 8px">App version '+APP_VERSION+'</div><div class="acts"><button class="btn" id="tCopy">Copy backup</button><button class="btn" id="tRestore">Restore pasted</button><button class="btn" id="tExp">Export for Google Maps</button><span class="grow"></span><button class="btn primary" id="tDone">Done</button></div>';
+  $$('[data-theme]',$('#sheet')).forEach(function(b){b.onclick=function(){ui.theme=b.getAttribute('data-theme');saveUI();applyTheme();$$('[data-theme]',$('#sheet')).forEach(function(x){x.classList.toggle('on',x===b)})}});
   $('#tShPack').onchange=function(){ui.hide.pack=!this.checked;if(ui.hide.pack&&ui.tab==='pack')ui.tab='today';saveUI();render()};$('#tShSpend').onchange=function(){ui.hide.spend=!this.checked;if(ui.hide.spend&&ui.tab==='spend')ui.tab='today';saveUI();render()};
   $('#tJson').value=JSON.stringify(state);$('#ov').classList.remove('hidden');
   $('#tStart').onchange=$('#tDays').onchange=function(){state.trip.start=$('#tStart').value;state.trip.days=Math.max(1,Math.min(30,+$('#tDays').value||7));state.pins.forEach(function(p){if(p.day>state.trip.days)p.day=0});if(ui.day>state.trip.days)ui.day=1;commit();render()};
