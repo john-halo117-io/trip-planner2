@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var APP_VERSION='2026.11.11-trim';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.11.11-drag';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0],shop:['Books & antiques','#8a5a2b',75]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -923,7 +923,7 @@ function row(p,opts){
   opts=opts||{};var c=(CATS[p.cat]||CATS.scenic)[1];
   var meta=opts.meta||[(CATS[p.cat]||['?'])[0]];
   if(!opts.meta){if(p.booked)meta.push('<b class="bk">Booked</b>');if(!hasLoc(p))meta.push('<b class="warn">No location</b>');if(p.notes)meta.push(esc(p.notes.slice(0,60))+(p.notes.length>60?'…':''))}
-  return '<div class="row'+(opts.faded?' faded':'')+'" data-open="'+p.id+'">'+(opts.num?'<span class="num" style="background:'+c+'">'+opts.num+'</span>':'<i class="sw" style="background:'+c+';width:12px;height:12px"></i>')+
+  return '<div class="row'+(opts.faded?' faded':'')+'" data-open="'+p.id+'">'+(opts.drag?'<span class="dh" aria-label="Drag to move" title="Drag to move">⠿</span>':'')+(opts.num?'<span class="num" style="background:'+c+'">'+opts.num+'</span>':'<i class="sw" style="background:'+c+';width:12px;height:12px"></i>')+
   '<div class="nm"><div>'+esc(p.name)+'</div><div class="meta">'+meta.join(' · ')+'</div></div><div class="ra">'+(opts.actions||'')+'</div></div>';
 }
 function baseOptions(sel,label){
@@ -933,7 +933,7 @@ function baseOptions(sel,label){
 function wxLine(n){
   var w=wxFor(n);
   if(w)return '<div class="wx"><b>'+cF(+w.hiC)+'° / '+cF(+w.loC)+'°F</b> <span class="o">('+Math.round(+w.hiC)+'/'+Math.round(+w.loC)+'°C)</span> · '+esc(w.summary||'')+' · rain '+(w.rainPct!=null?w.rainPct+'%':'?')+' · gusts '+(w.gustMph!=null?w.gustMph+' mph':'?')+(w.place?' <span class="o">@ '+esc(w.place)+'</span>':'')+'</div>';
-  return '<div class="wx o">'+(isoDate(n)?'No forecast yet. Forecasts appear once a day is within 16 days and has a base or a stop.':'Set your dates under Trip to get forecasts.')+' Outfit below uses typical mid-Nov weather.</div>';
+  return '<div class="wx o">'+(isoDate(n)?'No forecast yet. Forecasts appear once a day is within 16 days and has a base or a stop.':'Set your dates under Trip to get forecasts.')+(ui.hide.pack?'':' Outfit below uses typical mid-Nov weather.')+'</div>';
 }
 function outfitCard(n,compact){
   var o=outfit(n),h='<div class="card"><div class="ct">'+(o.est?'Typical-day outfit':'Today’s outfit')+'</div>';
@@ -970,23 +970,26 @@ function renderPanel(){
       '<div class="two" style="margin-top:8px"><div class="f"><label>Start from</label><select data-act="sbase">'+baseOptions(c.start,startBase(n)&&!c.start?'Last night’s base ('+esc(startBase(n).name)+')':'Choose a base…')+'</select></div><div class="f"><label>Sleep at</label><select data-act="ebase">'+baseOptions(c.end,'Same as start')+'</select></div></div>'+
       dayRouteLink(dp)+(dp.warn.length?'<ul class="al">'+dp.warn.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>':'')+'</div>';
     h+='<div class="sect"><span>Stops</span><span>'+(dp.rows.length?'<button class="lnk" data-act="hoursday">Check opening hours</button> <button class="lnk" data-act="clearday">Clear day</button>':'')+'</span></div>';
-    if(!dp.rows.length)h+='<div class="empty">Nothing planned yet. Add from your queue below.</div>';
+    h+='<div id="dzDay">';
+    if(!dp.rows.length)h+='<div class="empty">Nothing planned yet. Drag stops here from your queue (⠿), or tap + Day.</div>';
     if(hasLoc(dp.start)&&dp.rows.length)h+='<div class="leg">⌂ '+esc(dp.start.name)+' · leave '+hm(dp.leaveAt)+'</div>';
     var wet=isWet(wxFor(n));
     dp.rows.forEach(function(r,i){
       var p=r.p;if(r.leg)h+='<div class="leg">↓ ~'+dur(r.leg)+' drive · '+Math.round(km(r.from,p)*ROAD)+' km'+(r.from&&hasLoc(p)?' · <a href="'+gdir(r.from,p)+'" target="_blank" rel="noopener">directions</a>':'')+'</div>';
       var sw=byId(p.swapId),meta=['<b>'+hm(r.arrive)+'–'+hm(r.leave)+'</b>',dur(mins(p))];
       if(r.late)meta.push('<b class="warn">ends after dark</b>');if(p.hours){var hc=ohCheck(p,dp.date,r.arrive,r.leave);if(hc)meta.push(hc.bad?'<b class="warn">'+esc(hc.txt)+'</b>':'<span class="bk">'+esc(hc.txt)+'</span>')}if(r.miss)meta.push('<b class="warn">late for '+esc(p.slot)+'</b>');if(p.booked)meta.push('<b class="bk">Booked'+(p.slot?' '+esc(p.slot):'')+'</b>');if(+p.cost)meta.push(money(+p.cost));
-      var acts=(sw?'<button class="btn sm'+(wet?' hot':'')+'" data-act="swap" data-id="'+p.id+'" title="Swap with '+esc(sw.name)+'">☔ '+esc(sw.name.slice(0,14))+'</button>':'')+'<button class="ib" data-act="up" data-id="'+p.id+'">▲</button><button class="ib" data-act="dn" data-id="'+p.id+'">▼</button><button class="ib" title="Mark done" data-act="done" data-id="'+p.id+'">✓</button><button class="ib" title="Back to queue" data-act="unplan" data-id="'+p.id+'">↩</button>';
-      h+=row(p,{num:i+1,meta:meta,actions:acts});
+      var acts=(sw?'<button class="btn sm'+(wet?' hot':'')+'" data-act="swap" data-id="'+p.id+'" title="Swap with '+esc(sw.name)+'">☔ '+esc(sw.name.slice(0,14))+'</button>':'')+'<button class="ib" title="Mark done" data-act="done" data-id="'+p.id+'">✓</button><button class="ib" title="Back to queue" data-act="unplan" data-id="'+p.id+'">↩</button>';
+      h+=row(p,{num:i+1,meta:meta,actions:acts,drag:true});
     });
     if(dp.back&&hasLoc(dp.end))h+='<div class="leg">↓ ~'+dur(dp.back)+' drive · <a href="'+gdir(dp.lastStop,dp.end)+'" target="_blank" rel="noopener">directions</a><br>⌂ '+esc(dp.end.name)+' · ~'+hm(dp.finish)+'</div>';
+    h+='</div>';
     if(dp.rows.length&&!hasLoc(dp.start))h+='<div class="small" style="padding:4px 6px">Tip: set where you’re starting from so the first drive counts.</div>';
     if(!ui.hide.pack)h+=wearSummary(n);
     var up2=unplanned();
-    h+='<div class="sect"><span>From your queue ('+up2.length+')</span></div>';
+    h+='<div id="dzQueue"><div class="sect"><span>From your queue ('+up2.length+')</span><span class="o">drag ⠿ onto a stop or a day</span></div>';
     if(!up2.length)h+='<div class="empty">Queue is empty — add places in the Queue tab.</div>';
-    up2.forEach(function(p){h+=row(p,{faded:true,actions:'<button class="btn sm" data-act="addday" data-id="'+p.id+'">+ Day '+n+'</button>'})});
+    up2.forEach(function(p){h+=row(p,{faded:true,drag:true,actions:'<button class="btn sm" data-act="addday" data-id="'+p.id+'">+ Day '+n+'</button>'})});
+    h+='</div>';
     h+='<div class="sect"><span>Take it offline</span></div><div class="small" style="padding:0 6px 6px">Export your queued and planned places as a CSV for Google My Maps, then open that map in the Google Maps app and download the area for offline use. <button class="btn sm" data-act="export">Export for Google Maps</button> <button class="btn sm" data-act="ics">Add to Calendar</button></div>';
   }
   else if(ui.tab==='pack'){
@@ -1067,6 +1070,7 @@ $('#pbody').addEventListener('click',function(e){
   var t=e.target.closest('[data-act]');
   if(t&&t.tagName!=='SELECT'&&t.tagName!=='INPUT'){e.stopPropagation();e.preventDefault();act(t.getAttribute('data-act'),t);return}
   if(e.target.closest('select,input,textarea,button,a,label'))return;
+  if(Date.now()-dragEndAt<400||e.target.closest('.dh'))return;
   var r=e.target.closest('[data-open]');if(r){var p=byId(r.getAttribute('data-open'));if(hasLoc(p))flyTo(p,5);openEditor(p.id)}
 });
 $('#pbody').addEventListener('change',function(e){var t=e.target.closest('[data-act]');if(t)act(t.getAttribute('data-act'),t)});
@@ -1256,6 +1260,42 @@ $('#panel').classList.toggle('min',!!ui.min);
 try{if(JSON.stringify(JSON.parse(localStorage.getItem(LS)||'null'))!==JSON.stringify(state))localStorage.setItem(LS,JSON.stringify(state))}catch(e){}
 if(tripStatus().phase==='during')ui.tab='today';
 render();initMap();
+
+/* ---------- drag & drop in Plan (pointer events: works with touch on iPhone) ---------- */
+var drag=null,dragEndAt=0,dragAS=null,dragY=0;
+function dragMarks(){$$('.dzon,.dzt,.dzb').forEach(function(x){x.classList.remove('dzon','dzt','dzb')})}
+document.addEventListener('pointerdown',function(e){
+  var h=e.target.closest&&e.target.closest('.dh');if(!h||ui.tab!=='plan'||drag)return;
+  var rw=h.closest('.row'),p=rw&&byId(rw.getAttribute('data-open'));if(!p)return;
+  e.preventDefault();e.stopPropagation();
+  var r=rw.getBoundingClientRect(),g=rw.cloneNode(true);g.classList.add('dghost');g.style.width=r.width+'px';g.style.left=r.left+'px';g.style.top=r.top+'px';document.body.appendChild(g);
+  rw.classList.add('dsrc');drag={p:p,g:g,dy:e.clientY-r.top,src:rw,id:e.pointerId,t:null};dragY=e.clientY;
+  try{h.setPointerCapture(e.pointerId)}catch(_){}
+  dragAS=setInterval(function(){var pb=$('#pbody'),b=pb.getBoundingClientRect();if(dragY<b.top+44)pb.scrollTop-=10;else if(dragY>b.bottom-44)pb.scrollTop+=10},16);
+},{passive:false});
+document.addEventListener('pointermove',function(e){
+  if(!drag||e.pointerId!==drag.id)return;e.preventDefault();dragY=e.clientY;
+  drag.g.style.top=(e.clientY-drag.dy)+'px';drag.g.style.visibility='hidden';var el=document.elementFromPoint(e.clientX,e.clientY);drag.g.style.visibility='';
+  dragMarks();var t=null;
+  if(el&&el.closest){var chip=el.closest('[data-act="day"]'),rw=el.closest('#dzDay .row'),dz=el.closest('#dzDay'),qz=el.closest('#dzQueue');
+    if(chip){t={k:'day',d:+chip.getAttribute('data-d')};chip.classList.add('dzon')}
+    else if(rw&&rw!==drag.src){var rr=rw.getBoundingClientRect(),af=e.clientY>rr.top+rr.height/2;t={k:'at',id:rw.getAttribute('data-open'),after:af};rw.classList.add(af?'dzb':'dzt')}
+    else if(dz){t={k:'end'};dz.classList.add('dzon')}
+    else if(qz&&drag.p.day){t={k:'queue'};qz.classList.add('dzon')}}
+  drag.t=t;
+},{passive:false});
+function dragEnd(e){
+  if(!drag||e.pointerId!==drag.id)return;var d=drag;drag=null;clearInterval(dragAS);dragMarks();d.g.remove();d.src.classList.remove('dsrc');dragEndAt=Date.now();
+  if(e.type==='pointercancel'||!d.t)return;
+  var p=d.p,t=d.t,n=ui.day,before=snap(),msg='';
+  if(t.k==='queue'){p.day=0;p.order=nextOrder();msg=p.name+' back in queue'}
+  else if(t.k==='day'){if(p.day===t.d)return;p.day=t.d;p.order=nextOrder();msg=p.name+' → Day '+t.d}
+  else{var l=dayPins(n).filter(function(q){return q!==p}),at=l.length;
+    if(t.k==='at'){var i=l.map(function(q){return q.id}).indexOf(t.id);if(i>=0)at=i+(t.after?1:0)}
+    var wasDay=p.day;l.splice(at,0,p);p.day=n;l.forEach(function(q,k){q.order=k+1});msg=wasDay===n?'Moved to stop '+(at+1):p.name+' → Day '+n+', stop '+(at+1)}
+  commit();render();toast(msg,before);
+}
+document.addEventListener('pointerup',dragEnd);document.addEventListener('pointercancel',dragEnd);
 setInterval(function(){if(ui.tab==='today'&&!editing&&document.visibilityState==='visible'&&!$('#pbody').contains(document.activeElement))renderPanel()},60000);
 try{new ResizeObserver(function(){clearTimeout(rz);rz=setTimeout(resize,80)}).observe($('#mapwrap'))}catch(e){}
 setSave(sync?'Syncing…':'Saved on this phone');
