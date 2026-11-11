@@ -1,7 +1,7 @@
 (function(){
 "use strict";var rz;
 if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
-var APP_VERSION='2026.11.11-lite';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
+var APP_VERSION='2026.11.11-code';var LS='scotPinMap.v1', LSUI='scotPinMap.ui2';
 var CATS={hike:['Hike / walk','#2f7d4f',180],castle:['Castle / history','#7a4a8c',120],scenic:['Scenic stop','#1f6f9a',30],city:['Town / city','#b0542b',120],food:['Food / drink','#c28a12',75],stay:['Lodging','#3c4447',0],shop:['Books & antiques','#8a5a2b',75]};
 var STAGES={library:'Library',queue:'Queue',done:'Done'};
 var REF_DATE='2026-11-15';
@@ -177,7 +177,9 @@ function syncNow(){
     .then(function(){syncBusy=false;syncDot();if(syncAgain){syncAgain=false;scheduleSync(500)}});
 }
 function makeCode(url,key,secret){return 'TP1:'+b64u(enc.encode(JSON.stringify({u:url,k:key,s:secret})))}
-function readCode(c){c=String(c||'').trim().replace(/\s+/g,'');if(!/^TP1:[A-Za-z0-9_-]+$/.test(c))return null;try{var o=JSON.parse(decd.decode(ub64u(c.slice(4))));if(validUrl(o.u)&&keyKind(o.k)==='pub'&&ub64u(o.s).length===32)return {url:o.u,key:o.k,secret:o.s}}catch(e){}return null}
+function readCode(c){c=String(c||'').replace(/[\s​-‍﻿]+/g,'');var m=c.match(/TP1[:：]?([A-Za-z0-9_-]{40,})/i)||c.match(/^([A-Za-z0-9_-]{120,})$/);if(!m)return null;
+  try{var o=JSON.parse(decd.decode(ub64u(m[1])));if(validUrl(o.u)&&keyKind(o.k)==='pub'&&ub64u(o.s).length===32)return {url:o.u,key:o.k,secret:o.s}}catch(e){}return null}
+function codeHint(c){c=String(c||'').replace(/\s+/g,'');if(!c)return 'Paste the sync code first';if(!/TP1/i.test(c))return 'That isn’t a sync code: it should start with TP1:';if(c.length<150)return 'That code looks cut off. Long-press the whole message bubble → Copy, then paste again';return 'That code is incomplete or damaged. Ask for it to be sent again with Share sync code'}
 function startSync(cfg,isNew){
   sync={url:cfg.url,key:cfg.key,secret:cfg.secret,version:0};syncK=null;
   if(isNew){setBase({pins:[],spend:{items:[]},pack:{items:[]},people:[],fits:[]});}else{syncBase=null;try{localStorage.removeItem(LSBASE)}catch(e){}}
@@ -211,7 +213,7 @@ function bindSyncCard(){
     if(kk==='secret'){$('#syKey').value='';syncStatus('That’s your SECRET key. Never put it in an app. Use the publishable key, and consider rotating the secret one.',false);return}
     if(kk!=='pub'){syncStatus('That doesn’t look like a publishable key (sb_publishable_…)',false);return}
     var sec=b64u(crypto.getRandomValues(new Uint8Array(32)));b.disabled=true;startSync({url:url,key:key,secret:sec},true).then(function(){$('#bTrip').click()},function(){b.disabled=false})});
-  on('syJoin',function(b){var cfg=readCode($('#syCode').value);if(!cfg){syncStatus('That isn’t a valid sync code',false);return}b.disabled=true;startSync(cfg,false).then(function(){$('#syCode').value='';$('#bTrip').click()},function(){b.disabled=false})});
+  on('syJoin',function(b){var cfg=readCode($('#syCode').value);if(!cfg){syncStatus(codeHint($('#syCode').value),false);return}b.disabled=true;startSync(cfg,false).then(function(){$('#syCode').value='';$('#bTrip').click()},function(){b.disabled=false})});
   on('sySync',function(){syncNow()});
   on('syShare',function(){var code=makeCode(sync.url,sync.key,sync.secret);
     if(navigator.share)navigator.share({text:code}).catch(function(){});else{try{navigator.clipboard.writeText(code).then(function(){syncStatus('Code copied, so paste it into an encrypted chat')})}catch(e){}}});
